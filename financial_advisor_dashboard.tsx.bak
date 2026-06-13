@@ -1,0 +1,618 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  Wallet, PieChart, Plus, Trash2, Edit2, Upload, 
+  Send, Sparkles, TrendingUp, TrendingDown, Activity, 
+  CheckCircle2, XCircle, AlertCircle
+} from 'lucide-react';
+
+// --- INITIAL DATA ---
+const INITIAL_WALLETS = [
+  { id: '1', name: 'Wallet Daily', balance: 500000, color: 'bg-blue-500' },
+  { id: '2', name: 'Osmo Nano', balance: 150000, color: 'bg-indigo-500' },
+  { id: '3', name: 'Tabungan Nikah', balance: 12000000, color: 'bg-pink-500' },
+  { id: '4', name: 'Wallet Touring', balance: 2500000, color: 'bg-green-500' },
+  { id: '5', name: 'Dana Darurat', balance: 5000000, color: 'bg-red-500' },
+];
+
+export default function App() {
+  // --- STATE MANAGEMENT ---
+  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, wallets, ai-input
+  const [wallets, setWallets] = useState(INITIAL_WALLETS);
+  const [transactions, setTransactions] = useState([]);
+  
+  // AI Input State
+  const [aiInputText, setAiInputText] = useState('');
+  const [aiInputImage, setAiInputImage] = useState(null);
+  const [aiImagePreview, setAiImagePreview] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  
+  // Smart Allocation State
+  const [allocationProposal, setAllocationProposal] = useState(null);
+  
+  // Advice State
+  const [financialAdvice, setFinancialAdvice] = useState('');
+  const [isAdviceLoading, setIsAdviceLoading] = useState(false);
+
+  // UI Modals
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [editWalletId, setEditWalletId] = useState(null);
+  const [newWallet, setNewWallet] = useState({ name: '', balance: 0, color: 'bg-gray-500' });
+  
+  const fileInputRef = useRef(null);
+
+  // --- HELPER FUNCTIONS ---
+  const formatRupiah = (number) => {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+  };
+
+  const getTotalBalance = () => wallets.reduce((sum, w) => sum + w.balance, 0);
+  const getTotalIncome = () => transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+  const getTotalExpense = () => transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+
+  // --- WALLET MANAGEMENT ---
+  const handleSaveWallet = () => {
+    if (!newWallet.name) return;
+    
+    if (editWalletId) {
+      setWallets(wallets.map(w => w.id === editWalletId ? { ...w, ...newWallet, balance: Number(newWallet.balance) } : w));
+    } else {
+      setWallets([...wallets, { ...newWallet, id: Date.now().toString(), balance: Number(newWallet.balance) }]);
+    }
+    setShowWalletModal(false);
+    setEditWalletId(null);
+    setNewWallet({ name: '', balance: 0, color: 'bg-gray-500' });
+  };
+
+  const handleDeleteWallet = (id) => {
+    setWallets(wallets.filter(w => w.id !== id));
+  };
+
+  const openEditWallet = (wallet) => {
+    setEditWalletId(wallet.id);
+    setNewWallet({ name: wallet.name, balance: wallet.balance, color: wallet.color });
+    setShowWalletModal(true);
+  };
+
+  // --- AI GEMINI INTEGRATION ---
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAiInputImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAiImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const processAiInput = async () => {
+    if (!aiInputText && !aiInputImage) return;
+    setIsAiLoading(true);
+
+    try {
+      // 1. Prepare parts for Gemini API
+      const parts = [];
+      
+      // System Instruction to force JSON output
+      const systemInstruction = `Anda adalah AI Financial Advisor profesional bernama 'Gemini Finance'.
+Tugas Anda mengekstrak informasi keuangan dari teks atau gambar (struk belanja/mutasi).
+Jawab HANYA dengan format JSON yang valid tanpa markdown \`\`\`json.
+Daftar Wallet User saat ini: ${JSON.stringify(wallets.map(w => ({id: w.id, name: w.name})))}.
+
+Skema JSON yang WAJIB dikembalikan:
+{
+  "type": "income" | "expense",
+  "amount": number,
+  "category": string (misal: Makanan, Transportasi, Gaji, Bonus, dll),
+  "note": string (deskripsi singkat),
+  "suggestAllocation": boolean (TRUE jika type adalah 'income', FALSE jika 'expense'),
+  "allocations": [
+     { "walletId": "id dari daftar wallet", "walletName": "nama wallet", "percentage": number (1-100), "amount": number }
+  ] (isi array ini jika suggestAllocation TRUE, buat pembagian persentase yang logis sebagai financial advisor, total persentase harus 100%)
+}`;
+
+      // Add Text
+      let promptText = "Analisis transaksi berikut: " + aiInputText;
+      if (aiInputImage) promptText += " [Lampiran Gambar Struk/Bukti Transaksi]. Jika gambar berupa struk, totalkan pengeluarannya.";
+      parts.push({ text: promptText });
+
+      // Add Image if exists
+      if (aiInputImage) {
+        const base64Data = aiImagePreview.split(',')[1];
+        parts.push({
+          inlineData: {
+            mimeType: aiInputImage.type,
+            data: base64Data
+          }
+        });
+      }
+
+      // 2. Call Gemini API
+      // Note: apiKey is provided by the execution environment
+      const apiKey = ""; 
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: parts }],
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          generationConfig: { 
+            responseMimeType: "application/json"
+          }
+        })
+      });
+
+      const data = await response.json();
+      const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      
+      if (!resultText) throw new Error("Gagal membaca respon AI");
+
+      const parsedData = JSON.parse(resultText);
+
+      // 3. Handle Result
+      if (parsedData.suggestAllocation && parsedData.type === 'income') {
+        // Show allocation proposal modal
+        setAllocationProposal({
+          ...parsedData,
+          originalInput: aiInputText
+        });
+      } else {
+        // Direct expense or unallocated income
+        // For simplicity in this demo, if it's expense, we deduct from 'Daily' wallet by default if not specified
+        const defaultWallet = wallets.find(w => w.name.toLowerCase().includes('daily')) || wallets[0];
+        
+        executeTransaction({
+          ...parsedData,
+          walletId: defaultWallet.id,
+          date: new Date().toISOString()
+        });
+      }
+
+      // Reset input
+      setAiInputText('');
+      setAiInputImage(null);
+      setAiImagePreview('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
+    } catch (error) {
+      console.error("AI Processing Error:", error);
+      alert("Maaf, terjadi kesalahan saat memproses data dengan AI. Coba lagi.");
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  const getFinancialAdvice = async () => {
+    setIsAdviceLoading(true);
+    try {
+      const apiKey = "";
+      const prompt = `Anda adalah Financial Advisor. 
+Data Keuangan User saat ini:
+- Total Saldo: ${getTotalBalance()}
+- Daftar Dompet: ${JSON.stringify(wallets)}
+- Riwayat Transaksi Terakhir: ${JSON.stringify(transactions.slice(-5))}
+
+Berikan analisa singkat (maksimal 3 paragraf) dan saran actionable dalam bahasa Indonesia yang ramah dan memotivasi. Format dengan poin-poin jika perlu.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+
+      const data = await response.json();
+      setFinancialAdvice(data.candidates?.[0]?.content?.parts?.[0]?.text || "Gagal mendapatkan saran.");
+    } catch (error) {
+      setFinancialAdvice("Terjadi kesalahan koneksi saat meminta saran AI.");
+    } finally {
+      setIsAdviceLoading(false);
+    }
+  };
+
+  // --- TRANSACTION EXECUTION ---
+  const executeTransaction = (txData) => {
+    const newTx = {
+      id: Date.now().toString(),
+      type: txData.type,
+      amount: txData.amount,
+      category: txData.category,
+      note: txData.note,
+      date: txData.date || new Date().toISOString(),
+      walletId: txData.walletId
+    };
+
+    setTransactions([newTx, ...transactions]);
+
+    // Update Wallet Balance
+    setWallets(wallets.map(w => {
+      if (w.id === txData.walletId) {
+        const newBalance = txData.type === 'income' 
+          ? w.balance + txData.amount 
+          : w.balance - txData.amount;
+        return { ...w, balance: newBalance };
+      }
+      return w;
+    }));
+  };
+
+  const approveAllocation = () => {
+    if (!allocationProposal) return;
+
+    // Execute multiple transactions for each allocation
+    allocationProposal.allocations.forEach((alloc, index) => {
+      setTimeout(() => {
+        executeTransaction({
+          type: 'income',
+          amount: alloc.amount,
+          category: allocationProposal.category || 'Pemasukan',
+          note: `${allocationProposal.note || 'Alokasi Pemasukan'} - Otomatis AI`,
+          walletId: alloc.walletId,
+          date: new Date(Date.now() + index).toISOString() // slightly offset time
+        });
+      }, index * 10);
+    });
+
+    setAllocationProposal(null);
+    setActiveTab('dashboard');
+  };
+
+  // --- RENDERERS ---
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
+      
+      {/* Top Navigation */}
+      <nav className="bg-teal-900 text-white shadow-lg sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-2">
+              <Activity className="h-6 w-6 text-teal-400" />
+              <span className="font-bold text-xl tracking-tight">FINA Advisor</span>
+            </div>
+            <div className="flex space-x-1 sm:space-x-4">
+              <button 
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-teal-800 text-white' : 'text-teal-200 hover:bg-teal-800'}`}
+              >
+                Dashboard
+              </button>
+              <button 
+                onClick={() => setActiveTab('wallets')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'wallets' ? 'bg-teal-800 text-white' : 'text-teal-200 hover:bg-teal-800'}`}
+              >
+                Wallets
+              </button>
+              <button 
+                onClick={() => setActiveTab('ai-input')}
+                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'ai-input' ? 'bg-emerald-500 text-white' : 'bg-teal-800 text-teal-50 hover:bg-teal-700'}`}
+              >
+                <Sparkles className="w-4 h-4 mr-1" />
+                Input AI
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        {/* --- TAB: DASHBOARD --- */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-6 transform transition-all">
+            {/* Header / Total Card */}
+            <div className="bg-gradient-to-r from-teal-800 to-teal-600 rounded-2xl shadow-xl p-6 sm:p-8 text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
+              <h2 className="text-teal-100 font-medium text-lg mb-1">Total Kekayaan Aktif</h2>
+              <p className="text-4xl sm:text-5xl font-bold tracking-tight mb-6">
+                {formatRupiah(getTotalBalance())}
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4 border-t border-teal-400/30 pt-6">
+                <div>
+                  <p className="text-teal-200 text-sm flex items-center"><TrendingUp className="w-4 h-4 mr-1 text-emerald-400"/> Total Pemasukan</p>
+                  <p className="text-xl font-semibold text-white">{formatRupiah(getTotalIncome())}</p>
+                </div>
+                <div>
+                  <p className="text-teal-200 text-sm flex items-center"><TrendingDown className="w-4 h-4 mr-1 text-red-300"/> Total Pengeluaran</p>
+                  <p className="text-xl font-semibold text-white">{formatRupiah(getTotalExpense())}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Wallet Distribution Chart (CSS Based for reliability) */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 lg:col-span-2">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                  <PieChart className="w-5 h-5 mr-2 text-teal-500"/> Alokasi Dompet
+                </h3>
+                <div className="space-y-4 mt-6">
+                  {wallets.sort((a,b) => b.balance - a.balance).map(wallet => {
+                    const percentage = getTotalBalance() === 0 ? 0 : (wallet.balance / getTotalBalance()) * 100;
+                    return (
+                      <div key={wallet.id} className="relative">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium text-slate-700">{wallet.name}</span>
+                          <span className="text-slate-500">{formatRupiah(wallet.balance)} ({percentage.toFixed(1)}%)</span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2.5">
+                          <div className={`h-2.5 rounded-full ${wallet.color}`} style={{ width: `${percentage}%` }}></div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* AI Advice Panel */}
+              <div className="bg-teal-50 rounded-2xl shadow-sm border border-teal-100 p-6 flex flex-col">
+                <h3 className="text-lg font-bold text-teal-900 mb-2 flex items-center">
+                  <Sparkles className="w-5 h-5 mr-2 text-teal-600"/> AI Advisor
+                </h3>
+                <p className="text-sm text-teal-700 mb-4">Dapatkan analisa singkat mengenai kondisi keuangan Anda saat ini.</p>
+                
+                {financialAdvice ? (
+                  <div className="bg-white p-4 rounded-xl shadow-inner text-sm text-slate-700 flex-grow overflow-y-auto mb-4 border border-teal-100 leading-relaxed whitespace-pre-wrap">
+                    {financialAdvice}
+                  </div>
+                ) : (
+                  <div className="flex-grow flex items-center justify-center mb-4">
+                    <img src="https://illustrations.popsy.co/teal/surreal-hourglass.svg" alt="Advisor" className="w-32 opacity-50" />
+                  </div>
+                )}
+
+                <button 
+                  onClick={getFinancialAdvice}
+                  disabled={isAdviceLoading}
+                  className="w-full mt-auto bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex justify-center items-center"
+                >
+                  {isAdviceLoading ? <span className="animate-pulse">Menganalisa...</span> : "Minta Saran Terkini"}
+                </button>
+              </div>
+            </div>
+
+            {/* Recent Transactions */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+               <h3 className="text-lg font-bold text-slate-800 mb-4">Transaksi Terakhir</h3>
+               {transactions.length === 0 ? (
+                 <div className="text-center py-8 text-slate-400">Belum ada transaksi dicatat. Gunakan fitur Input AI!</div>
+               ) : (
+                 <div className="space-y-3">
+                   {transactions.map(tx => {
+                     const wallet = wallets.find(w => w.id === tx.walletId);
+                     return (
+                      <div key={tx.id} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-100">
+                        <div className="flex items-center">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 ${tx.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                            {tx.type === 'income' ? <TrendingUp className="w-5 h-5"/> : <TrendingDown className="w-5 h-5"/>}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800">{tx.category}</p>
+                            <div className="flex items-center text-xs text-slate-500 space-x-2">
+                              <span>{new Date(tx.date).toLocaleDateString('id-ID')}</span>
+                              <span>•</span>
+                              <span className={`px-2 py-0.5 rounded-full text-white ${wallet?.color || 'bg-gray-400'}`}>{wallet?.name || 'Unknown'}</span>
+                            </div>
+                            {tx.note && <p className="text-xs text-slate-500 mt-0.5">{tx.note}</p>}
+                          </div>
+                        </div>
+                        <div className={`font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-slate-800'}`}>
+                          {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
+                        </div>
+                      </div>
+                     )
+                   })}
+                 </div>
+               )}
+            </div>
+          </div>
+        )}
+
+        {/* --- TAB: WALLETS --- */}
+        {activeTab === 'wallets' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-slate-800">Manajemen Wallet</h2>
+              <button 
+                onClick={() => { setEditWalletId(null); setNewWallet({ name: '', balance: 0, color: 'bg-teal-500' }); setShowWalletModal(true); }}
+                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium flex items-center transition-colors"
+              >
+                <Plus className="w-4 h-4 mr-2"/> Buat Wallet
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {wallets.map(wallet => (
+                <div key={wallet.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 relative overflow-hidden group">
+                  <div className={`absolute top-0 left-0 w-1.5 h-full ${wallet.color}`}></div>
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="font-bold text-lg text-slate-800 flex items-center">
+                      <Wallet className="w-5 h-5 mr-2 text-slate-400"/> {wallet.name}
+                    </h3>
+                    <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => openEditWallet(wallet)} className="p-1.5 text-slate-400 hover:text-teal-600 rounded-md hover:bg-teal-50">
+                        <Edit2 className="w-4 h-4"/>
+                      </button>
+                      <button onClick={() => handleDeleteWallet(wallet.id)} className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50">
+                        <Trash2 className="w-4 h-4"/>
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-500 mb-1">Saldo Saat Ini</p>
+                  <p className="text-2xl font-bold text-slate-800">{formatRupiah(wallet.balance)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* --- TAB: AI INPUT --- */}
+        {activeTab === 'ai-input' && (
+          <div className="max-w-2xl mx-auto space-y-6 animate-in zoom-in-95 duration-300">
+            <div className="bg-white rounded-3xl shadow-xl border border-teal-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-teal-600 to-emerald-600 p-6 text-white text-center">
+                <Sparkles className="w-10 h-10 mx-auto mb-3 text-teal-100"/>
+                <h2 className="text-2xl font-bold mb-2">Asisten Pencatatan Cerdas</h2>
+                <p className="text-teal-50 text-sm">Ceritakan pengeluaran/pemasukan Anda atau unggah foto struk. AI akan memprosesnya otomatis.</p>
+                <p className="text-teal-100 text-xs mt-2 bg-black/10 inline-block px-3 py-1 rounded-full">Tips: Ketik "Gajian bulan ini 10 juta" untuk melihat auto-alokasi!</p>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* Image Preview Area */}
+                {aiImagePreview && (
+                  <div className="relative inline-block">
+                    <img src={aiImagePreview} alt="Struk" className="h-32 rounded-lg border border-slate-200 object-cover shadow-sm" />
+                    <button 
+                      onClick={() => { setAiInputImage(null); setAiImagePreview(''); if(fileInputRef.current) fileInputRef.current.value=''; }}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow hover:bg-red-600"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="relative">
+                  <textarea 
+                    value={aiInputText}
+                    onChange={(e) => setAiInputText(e.target.value)}
+                    placeholder="Contoh: Beli bensin motor 30rb, ngopi 25rb... atau upload struk/mutasi PDF berupa text disini."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 pr-12 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none resize-none min-h-[120px]"
+                  />
+                  <div className="absolute bottom-3 right-3 flex space-x-2">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      ref={fileInputRef}
+                      onChange={handleImageUpload}
+                    />
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2 bg-white text-slate-400 hover:text-teal-600 rounded-full shadow-sm border border-slate-200 transition-colors"
+                      title="Upload Struk / Gambar"
+                    >
+                      <Upload className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={processAiInput}
+                  disabled={isAiLoading || (!aiInputText && !aiInputImage)}
+                  className={`w-full py-4 rounded-xl font-bold flex justify-center items-center transition-all ${isAiLoading || (!aiInputText && !aiInputImage) ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700 text-white shadow-lg hover:shadow-teal-500/30'}`}
+                >
+                  {isAiLoading ? (
+                    <span className="flex items-center"><Activity className="w-5 h-5 mr-2 animate-spin"/> Memproses dengan AI...</span>
+                  ) : (
+                    <span className="flex items-center"><Send className="w-5 h-5 mr-2"/> Analisis & Catat</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* --- MODALS --- */}
+      
+      {/* Wallet Form Modal */}
+      {showWalletModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-lg text-slate-800">{editWalletId ? 'Edit Wallet' : 'Buat Wallet Baru'}</h3>
+              <button onClick={() => setShowWalletModal(false)} className="text-slate-400 hover:text-slate-600"><XCircle className="w-5 h-5"/></button>
+            </div>
+            <div className="p-6 space-y-4">
+              {}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nama Wallet</label>
+                <input 
+                  type="text" 
+                  value={newWallet.name}
+                  onChange={(e) => setNewWallet({...newWallet, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+                  placeholder="Misal: Tabungan Liburan"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Saldo Awal</label>
+                <input 
+                  type="number" 
+                  value={newWallet.balance}
+                  onChange={(e) => setNewWallet({...newWallet, balance: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Warna</label>
+                <div className="flex space-x-2">
+                  {['bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500', 'bg-red-500', 'bg-orange-500', 'bg-green-500', 'bg-teal-500'].map(color => (
+                    <button 
+                      key={color}
+                      onClick={() => setNewWallet({...newWallet, color})}
+                      className={`w-8 h-8 rounded-full ${color} ${newWallet.color === color ? 'ring-2 ring-offset-2 ring-slate-800' : ''}`}
+                    />
+                  ))}
+                </div>
+              </div>
+              <button 
+                onClick={handleSaveWallet}
+                className="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 rounded-lg mt-4"
+              >
+                Simpan Wallet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Allocation Proposal Modal */}
+      {allocationProposal && (
+        <div className="fixed inset-0 bg-teal-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in slide-in-from-bottom-10">
+            <div className="bg-teal-50 px-6 py-8 text-center border-b border-teal-100">
+              <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-teal-600"/>
+              </div>
+              <h3 className="font-bold text-2xl text-teal-900 mb-2">Pemasukan Terdeteksi!</h3>
+              <p className="text-teal-700">AI mendeteksi pemasukan sebesar <strong className="text-teal-900">{formatRupiah(allocationProposal.amount)}</strong>. Berikut rekomendasi distribusi cerdas untuk dompet Anda:</p>
+            </div>
+            
+            <div className="p-6">
+              <div className="space-y-3 mb-6">
+                {allocationProposal.allocations.map((alloc, idx) => (
+                  <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                    <div className="flex items-center">
+                      <div className="font-bold text-teal-600 w-12">{alloc.percentage}%</div>
+                      <div className="font-medium text-slate-800">{alloc.walletName || wallets.find(w => w.id === alloc.walletId)?.name || 'Wallet'}</div>
+                    </div>
+                    <div className="font-semibold text-slate-800">{formatRupiah(alloc.amount)}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex space-x-3">
+                <button 
+                  onClick={() => setAllocationProposal(null)}
+                  className="flex-1 py-3 px-4 rounded-xl font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Batal / Edit Manual
+                </button>
+                <button 
+                  onClick={approveAllocation}
+                  className="flex-1 py-3 px-4 rounded-xl font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-500/30 flex justify-center items-center transition-transform hover:scale-[1.02]"
+                >
+                  <CheckCircle2 className="w-5 h-5 mr-2"/> Setujui & Alokasikan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

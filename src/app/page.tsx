@@ -47,10 +47,10 @@ export default function Home() {
   const fetchData = useCallback(async () => {
     try {
       const [walletsRes, categoriesRes, transactionsRes, settingsRes] = await Promise.all([
-        fetch('/api/wallets'),
-        fetch('/api/categories'),
-        fetch('/api/transactions'),
-        fetch('/api/settings'),
+        fetch('/api/wallets', { cache: 'no-store' }),
+        fetch('/api/categories', { cache: 'no-store' }),
+        fetch('/api/transactions', { cache: 'no-store' }),
+        fetch('/api/settings', { cache: 'no-store' }),
       ]);
       
       const parseJsonSafely = async (res: Response, fallback: any) => {

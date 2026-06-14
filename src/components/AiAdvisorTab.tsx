@@ -71,6 +71,7 @@ FORMAT RESPON:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          model: 'gemini-2.5-pro',
           contents: [{ parts: [{ text: prompt }] }]
         })
       });

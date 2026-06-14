@@ -116,6 +116,7 @@ Return ONLY a JSON response in this exact format:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          model: 'gemini-2.5-flash',
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { responseMimeType: "application/json" }
         })

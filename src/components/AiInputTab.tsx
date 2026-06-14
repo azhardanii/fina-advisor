@@ -79,6 +79,7 @@ Skema JSON yang WAJIB dikembalikan:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          model: aiInputImage ? 'gemini-3.5-flash' : 'gemini-3.1-flash-lite',
           contents: [{ role: "user", parts: parts }],
           systemInstruction: { parts: [{ text: systemInstruction }] },
           generationConfig: { 

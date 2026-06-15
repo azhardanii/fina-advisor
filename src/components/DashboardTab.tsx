@@ -213,7 +213,7 @@ export default function DashboardTab({ wallets, transactions, categories, format
                     outerRadius={80}
                     paddingAngle={5}
                     dataKey="value"
-                    onClick={(data) => setSelectedCategory(selectedCategory === data.name ? null : data.name)}
+                    onClick={(data) => setSelectedCategory(selectedCategory === data.name ? null : (data.name || null))}
                     style={{ cursor: 'pointer' }}
                   >
                     {categoryData.map((entry, index) => (
@@ -221,7 +221,7 @@ export default function DashboardTab({ wallets, transactions, categories, format
                     ))}
                   </Pie>
                   <RechartsTooltip 
-                    formatter={(value: number) => formatRupiah(value)}
+                    formatter={(value: any) => formatRupiah(Number(value) || 0)}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
                 </PieChart>

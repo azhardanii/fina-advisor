@@ -14,6 +14,7 @@ export default function TransactionEditModal({ transaction, wallets, categories,
   const [category, setCategory] = useState('');
   const [note, setNote] = useState('');
   const [walletId, setWalletId] = useState('');
+  const [dateStr, setDateStr] = useState('');
 
   useEffect(() => {
     if (transaction) {
@@ -21,13 +22,16 @@ export default function TransactionEditModal({ transaction, wallets, categories,
       setCategory(transaction.category);
       setNote(transaction.note);
       setWalletId(transaction.walletId);
+      // slice(0, 16) formats the ISO string down to YYYY-MM-DDTHH:mm to fit datetime-local
+      setDateStr(new Date(transaction.date).toISOString().slice(0, 16));
     }
   }, [transaction]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (transaction) {
-      onSave({ ...transaction, amount, category, note, walletId });
+      const newDate = new Date(dateStr).toISOString();
+      onSave({ ...transaction, amount, category, note, walletId, date: newDate });
     }
   };
 
@@ -80,6 +84,15 @@ export default function TransactionEditModal({ transaction, wallets, categories,
                 <option key={w.id} value={w.id}>{w.name}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
+            <input 
+              type="datetime-local" 
+              value={dateStr}
+              onChange={e => setDateStr(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Catatan</label>

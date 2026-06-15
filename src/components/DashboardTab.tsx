@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PieChart, TrendingUp, TrendingDown, Sparkles, Edit2, Trash2, Pin, ArrowDownCircle, ArrowUpCircle, Wallet as WalletIcon } from 'lucide-react';
 import { Wallet, Transaction, Category } from '@/types';
+import { getIconTheme } from '@/lib/theme';
 
 interface DashboardTabProps {
   wallets: Wallet[];
@@ -13,6 +14,7 @@ interface DashboardTabProps {
 }
 
 export default function DashboardTab({ wallets, transactions, categories, formatRupiah, onNavigate, onEditTransaction, onDeleteTransaction }: DashboardTabProps) {
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
   const isEditable = (dateStr: string) => {
     return Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000;
   };
@@ -21,32 +23,6 @@ export default function DashboardTab({ wallets, transactions, categories, format
   const getTotalIncome = () => transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const getTotalExpense = () => transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
 
-  const getIconTheme = (colorClass: string) => {
-    const colorName = colorClass.split('-')[1];
-    const map: Record<string, string> = {
-      'slate': 'bg-slate-100 text-slate-600',
-      'gray': 'bg-gray-100 text-gray-600',
-      'stone': 'bg-stone-100 text-stone-600',
-      'red': 'bg-red-100 text-red-600',
-      'orange': 'bg-orange-100 text-orange-600',
-      'amber': 'bg-amber-100 text-amber-600',
-      'yellow': 'bg-yellow-100 text-yellow-600',
-      'lime': 'bg-lime-100 text-lime-600',
-      'green': 'bg-green-100 text-green-600',
-      'emerald': 'bg-emerald-100 text-emerald-600',
-      'teal': 'bg-teal-100 text-teal-600',
-      'cyan': 'bg-cyan-100 text-cyan-600',
-      'sky': 'bg-sky-100 text-sky-600',
-      'blue': 'bg-blue-100 text-blue-600',
-      'indigo': 'bg-indigo-100 text-indigo-600',
-      'violet': 'bg-violet-100 text-violet-600',
-      'purple': 'bg-purple-100 text-purple-600',
-      'fuchsia': 'bg-fuchsia-100 text-fuchsia-600',
-      'pink': 'bg-pink-100 text-pink-600',
-      'rose': 'bg-rose-100 text-rose-600',
-    };
-    return map[colorName] || 'bg-slate-100 text-slate-600';
-  };
 
   const isSettingUp = categories.length === 0 || wallets.length === 0 || transactions.length === 0;
 
@@ -196,12 +172,22 @@ export default function DashboardTab({ wallets, transactions, categories, format
 
       {/* Recent Transactions */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Transaksi Terakhir</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-slate-800">Transaksi Terakhir</h3>
+            {transactions.length > 20 && (
+              <button 
+                onClick={() => setShowAllTransactions(!showAllTransactions)}
+                className="text-sm text-teal-600 hover:text-teal-700 font-medium"
+              >
+                {showAllTransactions ? 'Tampilkan Sedikit' : `Lihat Semua (${transactions.length})`}
+              </button>
+            )}
+          </div>
           {transactions.length === 0 ? (
             <div className="text-center py-8 text-slate-400">Belum ada transaksi dicatat. Gunakan fitur Input AI!</div>
           ) : (
             <div className="space-y-3">
-              {transactions.map(tx => {
+              {(showAllTransactions ? transactions : transactions.slice(0, 20)).map(tx => {
                 const wallet = wallets.find(w => w.id === tx.walletId);
                 const category = categories.find(c => c.name === tx.category);
                 const iconTheme = category ? getIconTheme(category.color) : (tx.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600');

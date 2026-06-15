@@ -12,6 +12,7 @@ import WalletModal from '@/components/WalletModal';
 import AllocationModal from '@/components/AllocationModal';
 import SuccessReceiptModal from '@/components/SuccessReceiptModal';
 import TransactionEditModal from '@/components/TransactionEditModal';
+import TransferModal from '@/components/TransferModal';
 
 type TabType = 'dashboard' | 'wallets' | 'categories' | 'ai-input' | 'ai-advisor';
 
@@ -33,6 +34,7 @@ export default function Home() {
   
   const [allocationProposal, setAllocationProposal] = useState<AllocationProposal | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const [editWalletId, setEditWalletId] = useState<string | null>(null);
   const [newWallet, setNewWallet] = useState<Partial<Wallet>>({ name: '', balance: 0, color: 'bg-teal-500', bankName: '', accountNumber: '', accountName: '', allocationGroup: '' });
   const [receiptTransactions, setReceiptTransactions] = useState<Omit<Transaction, 'id'>[] | null>(null);
@@ -150,6 +152,12 @@ export default function Home() {
   };
 
   const handleDeleteWallet = async (id: string) => {
+    const wallet = wallets.find(w => w.id === id);
+    const txCount = transactions.filter(t => t.walletId === id).length;
+    const message = txCount > 0
+      ? `Dompet "${wallet?.name}" memiliki ${txCount} transaksi yang akan ikut terhapus secara permanen. Lanjutkan?`
+      : `Yakin ingin menghapus dompet "${wallet?.name}"?`;
+    if (!window.confirm(message)) return;
     setIsProcessing(true);
     setProcessMessage('Menghapus dompet...');
     try {
@@ -157,6 +165,29 @@ export default function Home() {
       await fetchData();
     } catch (error) {
       console.error('Delete wallet failed:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleTransfer = async (sourceWalletId: string, destWalletId: string, amount: number, date: string, note: string) => {
+    setIsProcessing(true);
+    setProcessMessage('Memproses transfer...');
+    try {
+      const response = await fetch('/api/transactions/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceWalletId, destWalletId, amount, date, note }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Transfer gagal');
+      }
+      await fetchData();
+    } catch (error: any) {
+      console.error('Transfer failed:', error);
+      alert(error.message);
+      throw error;
     } finally {
       setIsProcessing(false);
     }
@@ -204,6 +235,12 @@ export default function Home() {
   };
 
   const handleDeleteCategory = async (id: string) => {
+    const category = categories.find(c => c.id === id);
+    const txCount = transactions.filter(t => t.category === category?.name).length;
+    const message = txCount > 0
+      ? `Kategori "${category?.name}" digunakan oleh ${txCount} transaksi. Transaksi tersebut akan tetap ada namun kategorinya menjadi tidak terdaftar. Lanjutkan?`
+      : `Yakin ingin menghapus kategori "${category?.name}"?`;
+    if (!window.confirm(message)) return;
     setIsProcessing(true);
     setProcessMessage('Menghapus kategori...');
     try {
@@ -234,6 +271,7 @@ export default function Home() {
   };
 
   const handleDeleteTransaction = async (id: string) => {
+    if (!window.confirm('Yakin ingin menghapus transaksi ini? Saldo dompet akan dikembalikan.')) return;
     setIsProcessing(true);
     setProcessMessage('Menghapus transaksi...');
     try {
@@ -488,6 +526,7 @@ export default function Home() {
               onOpenEditWallet={openEditWallet} 
               onDeleteWallet={handleDeleteWallet} 
               onTogglePinWallet={handleTogglePinWallet}
+              onOpenTransferModal={() => setShowTransferModal(true)}
               onUpdateWallets={handleUpdateWallets}
               onEditTransaction={setEditingTransaction}
               onDeleteTransaction={handleDeleteTransaction}
@@ -565,6 +604,14 @@ export default function Home() {
           categories={categories}
           onSave={handleEditTransaction}
           onClose={() => setEditingTransaction(null)}
+        />
+      )}
+
+      {showTransferModal && (
+        <TransferModal
+          wallets={wallets}
+          onTransfer={handleTransfer}
+          onClose={() => setShowTransferModal(false)}
         />
       )}
 

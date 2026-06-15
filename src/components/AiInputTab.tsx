@@ -31,6 +31,14 @@ export default function AiInputTab({ wallets, categories, onExecuteTransactions,
 
   const processAiInput = async () => {
     if (!aiInputText && !aiInputImage) return;
+    if (wallets.length === 0) {
+      alert('Kamu belum memiliki dompet. Silakan buat dompet terlebih dahulu di tab Wallets.');
+      return;
+    }
+    if (categories.length === 0) {
+      alert('Kamu belum memiliki kategori. Silakan buat kategori terlebih dahulu di tab Kategori.');
+      return;
+    }
     setIsAiLoading(true);
 
     try {
@@ -41,6 +49,7 @@ Tugas Kamu mengekstrak informasi keuangan dari teks atau gambar (struk belanja/m
 Jawab HANYA dengan format JSON yang valid tanpa markdown \`\`\`json.
 Daftar Wallet User saat ini: ${JSON.stringify(wallets.map(w => ({id: w.id, name: w.name})))}.
 Daftar Kategori yang Tersedia: ${JSON.stringify(categories.map(c => c.name))}.
+Tanggal Hari Ini (sebagai referensi tahun/bulan jika user hanya menyebut tanggal/hari): ${new Date().toISOString()}
 
 Skema JSON yang WAJIB dikembalikan:
 {
@@ -50,6 +59,7 @@ Skema JSON yang WAJIB dikembalikan:
       "amount": number,
       "category": string (PENTING: Kamu HANYA BOLEH menggunakan nama kategori yang persis sama dari Daftar Kategori yang Tersedia. DILARANG KERAS membuat nama kategori sendiri. Jika bingung, pilih yang paling mendekati.),
       "note": string (deskripsi singkat),
+      "date": string (ISO 8601 string, HANYA diisi jika user menyebutkan tanggal spesifik. Jika tidak disebut, biarkan null),
       "suggestAllocation": boolean (TRUE jika type adalah 'income', FALSE jika 'expense'),
       "allocations": [
         {
@@ -141,7 +151,7 @@ Skema JSON yang WAJIB dikembalikan:
             category: t.category,
             note: t.note,
             walletId: defaultWallet?.id,
-            date: new Date().toISOString()
+            date: t.date ? new Date(t.date).toISOString() : new Date().toISOString()
           }));
           onExecuteTransactions(executedTxs);
           onShowReceipt(executedTxs);
@@ -153,7 +163,7 @@ Skema JSON yang WAJIB dikembalikan:
           category: t.category,
           note: t.note,
           walletId: defaultWallet?.id,
-          date: new Date().toISOString()
+          date: t.date ? new Date(t.date).toISOString() : new Date().toISOString()
         }));
         onExecuteTransactions(executedTxs);
         onShowReceipt(executedTxs);

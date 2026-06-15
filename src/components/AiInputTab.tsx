@@ -5,7 +5,7 @@ import { Wallet, Transaction, AllocationProposal, Category } from '@/types';
 interface AiInputTabProps {
   wallets: Wallet[];
   categories: Category[];
-  onExecuteTransactions: (txs: Omit<Transaction, 'id'>[]) => void;
+  onExecuteTransactions: (txs: Omit<Transaction, 'id'>[]) => Promise<boolean>;
   onShowAllocationProposal: (proposal: AllocationProposal) => void;
   onShowReceipt: (txs: Omit<Transaction, 'id'>[]) => void;
 }
@@ -146,27 +146,31 @@ Skema JSON yang WAJIB dikembalikan:
 
         if (otherTxs.length > 0) {
           const executedTxs = otherTxs.map((t: any) => ({
-            type: t.type,
+            type: t.type?.toLowerCase() === 'income' ? 'income' : 'expense',
             amount: t.amount,
             category: t.category,
             note: t.note,
             walletId: defaultWallet?.id,
             date: t.date ? new Date(t.date).toISOString() : new Date().toISOString()
           }));
-          onExecuteTransactions(executedTxs);
-          onShowReceipt(executedTxs);
+          const success = await onExecuteTransactions(executedTxs);
+          if (success) {
+            onShowReceipt(executedTxs);
+          }
         }
       } else {
         const executedTxs = parsedData.transactions.map((t: any) => ({
-          type: t.type,
+          type: t.type?.toLowerCase() === 'income' ? 'income' : 'expense',
           amount: t.amount,
           category: t.category,
           note: t.note,
           walletId: defaultWallet?.id,
           date: t.date ? new Date(t.date).toISOString() : new Date().toISOString()
         }));
-        onExecuteTransactions(executedTxs);
-        onShowReceipt(executedTxs);
+        const success = await onExecuteTransactions(executedTxs);
+        if (success) {
+          onShowReceipt(executedTxs);
+        }
       }
 
       setAiInputText('');

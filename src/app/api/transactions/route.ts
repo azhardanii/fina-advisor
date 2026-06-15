@@ -22,10 +22,10 @@ export async function POST(req: Request) {
     // Support bulk transactions (array)
     const txDataArray = Array.isArray(body) ? body : [body];
 
-    const results = await prisma.$transaction(async (tx) => {
-      const created = [];
-      for (const txData of txDataArray) {
-        const transaction = await tx.transaction.create({
+    const operations = [];
+    for (const txData of txDataArray) {
+      operations.push(
+        prisma.transaction.create({
           data: {
             type: txData.type,
             amount: txData.amount,
@@ -34,23 +34,24 @@ export async function POST(req: Request) {
             date: txData.date ? new Date(txData.date) : new Date(),
             walletId: txData.walletId,
           },
-        });
+        })
+      );
 
-        // Update wallet balance
-        const balanceChange = txData.type === 'income' ? txData.amount : -txData.amount;
-        await tx.wallet.update({
+      const balanceChange = txData.type === 'income' ? txData.amount : -txData.amount;
+      operations.push(
+        prisma.wallet.update({
           where: { id: txData.walletId },
           data: { balance: { increment: balanceChange } },
-        });
+        })
+      );
+    }
 
-        created.push(transaction);
-      }
-      return created;
-    });
+    const results = await prisma.$transaction(operations);
+    const createdTransactions = results.filter((_, idx) => idx % 2 === 0);
 
-    return NextResponse.json(results, { status: 201 });
+    return NextResponse.json(createdTransactions, { status: 201 });
   } catch (error) {
     console.error('POST /api/transactions error:', error);
-    return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create transaction', details: String(error) }, { status: 500 });
   }
 }

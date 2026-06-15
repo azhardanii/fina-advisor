@@ -6,20 +6,21 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params;
     const body = await req.json();
 
-    const result = await prisma.$transaction(async (tx) => {
-      // Get old transaction to revert balance
-      const oldTx = await tx.transaction.findUnique({ where: { id } });
-      if (!oldTx) throw new Error('Transaction not found');
+    // Get old transaction outside the transaction to avoid holding the lock
+    const oldTx = await prisma.transaction.findUnique({ where: { id } });
+    if (!oldTx) throw new Error('Transaction not found');
 
-      // Revert old balance
-      const revertChange = oldTx.type === 'income' ? -oldTx.amount : oldTx.amount;
-      await tx.wallet.update({
+    const revertChange = oldTx.type === 'income' ? -oldTx.amount : oldTx.amount;
+    const applyChange = body.type === 'income' ? body.amount : -body.amount;
+
+    const result = await prisma.$transaction([
+      // 1. Revert old balance
+      prisma.wallet.update({
         where: { id: oldTx.walletId },
         data: { balance: { increment: revertChange } },
-      });
-
-      // Update transaction
-      const updated = await tx.transaction.update({
+      }),
+      // 2. Update transaction
+      prisma.transaction.update({
         where: { id },
         data: {
           type: body.type,
@@ -27,20 +28,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           category: body.category,
           note: body.note || '',
           walletId: body.walletId,
+          date: body.date ? new Date(body.date) : undefined,
         },
-      });
-
-      // Apply new balance
-      const applyChange = body.type === 'income' ? body.amount : -body.amount;
-      await tx.wallet.update({
+      }),
+      // 3. Apply new balance
+      prisma.wallet.update({
         where: { id: body.walletId },
         data: { balance: { increment: applyChange } },
-      });
+      })
+    ]);
 
-      return updated;
-    });
-
-    return NextResponse.json(result);
+    // result[1] is the updated transaction
+    return NextResponse.json(result[1]);
   } catch (error) {
     console.error('PUT /api/transactions/[id] error:', error);
     return NextResponse.json({ error: 'Failed to update transaction' }, { status: 500 });
@@ -51,19 +50,20 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
 
-    await prisma.$transaction(async (tx) => {
-      const oldTx = await tx.transaction.findUnique({ where: { id } });
-      if (!oldTx) throw new Error('Transaction not found');
+    const oldTx = await prisma.transaction.findUnique({ where: { id } });
+    if (!oldTx) throw new Error('Transaction not found');
 
-      // Revert balance
-      const revertChange = oldTx.type === 'income' ? -oldTx.amount : oldTx.amount;
-      await tx.wallet.update({
+    const revertChange = oldTx.type === 'income' ? -oldTx.amount : oldTx.amount;
+
+    await prisma.$transaction([
+      // 1. Revert balance
+      prisma.wallet.update({
         where: { id: oldTx.walletId },
         data: { balance: { increment: revertChange } },
-      });
-
-      await tx.transaction.delete({ where: { id } });
-    });
+      }),
+      // 2. Delete transaction
+      prisma.transaction.delete({ where: { id } })
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { PieChart, TrendingUp, TrendingDown, Sparkles, Edit2, Trash2, Pin, ArrowDownCircle, ArrowUpCircle, Wallet as WalletIcon } from 'lucide-react';
+import { PieChart as PieChartIcon, TrendingUp, TrendingDown, Sparkles, Edit2, Trash2, Pin, ArrowDownCircle, ArrowUpCircle, Wallet as WalletIcon, X, Filter } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { Wallet, Transaction, Category } from '@/types';
 import { getIconTheme } from '@/lib/theme';
 
@@ -15,6 +16,8 @@ interface DashboardTabProps {
 
 export default function DashboardTab({ wallets, transactions, categories, formatRupiah, onNavigate, onEditTransaction, onDeleteTransaction }: DashboardTabProps) {
   const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
   const isEditable = (dateStr: string) => {
     return Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000;
   };
@@ -22,6 +25,28 @@ export default function DashboardTab({ wallets, transactions, categories, format
   const getTotalBalance = () => wallets.reduce((sum, w) => sum + w.balance, 0);
   const getTotalIncome = () => transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const getTotalExpense = () => transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+
+  // Category Distribution Data
+  const expenseTransactions = transactions.filter(t => t.type === 'expense');
+  const expensesByCategory = expenseTransactions.reduce((acc, tx) => {
+    acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const CHART_COLORS = ['#0d9488', '#0284c7', '#2563eb', '#7c3aed', '#db2777', '#e11d48', '#ea580c', '#d97706', '#65a30d', '#16a34a'];
+  
+  const categoryData = Object.entries(expensesByCategory)
+    .filter(([_, amount]) => amount > 0)
+    .map(([name, amount], index) => ({
+      name,
+      value: amount,
+      color: CHART_COLORS[index % CHART_COLORS.length]
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  const displayedTransactions = selectedCategory 
+    ? transactions.filter(t => t.category === selectedCategory)
+    : transactions;
 
 
   const isSettingUp = categories.length === 0 || wallets.length === 0 || transactions.length === 0;
@@ -149,7 +174,7 @@ export default function DashboardTab({ wallets, transactions, categories, format
         {/* Wallet Distribution Chart (CSS Based for reliability) */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-            <PieChart className="w-5 h-5 mr-2 text-teal-500"/> Alokasi Dompet
+            <PieChartIcon className="w-5 h-5 mr-2 text-teal-500"/> Alokasi Dompet
           </h3>
           <div className="space-y-4 mt-6">
             {[...wallets].sort((a,b) => b.balance - a.balance).map(wallet => {
@@ -170,24 +195,91 @@ export default function DashboardTab({ wallets, transactions, categories, format
         </div>
       </div>
 
+      {/* Category Expense Distribution */}
+      {categoryData.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+            <Filter className="w-5 h-5 mr-2 text-teal-500"/> Distribusi Pengeluaran
+          </h3>
+          <div className="flex flex-col md:flex-row gap-8 items-center">
+            <div className="w-full md:w-1/2 h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    onClick={(data) => setSelectedCategory(selectedCategory === data.name ? null : data.name)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip 
+                    formatter={(value: number) => formatRupiah(value)}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="w-full md:w-1/2 space-y-3 max-h-64 overflow-y-auto pr-2">
+              <p className="text-sm text-slate-500 mb-2">Klik grafik atau kategori untuk melihat detail transaksinya.</p>
+              {categoryData.map((cat, idx) => {
+                const percentage = (cat.value / getTotalExpense()) * 100;
+                const isSelected = selectedCategory === cat.name;
+                return (
+                  <div 
+                    key={idx} 
+                    onClick={() => setSelectedCategory(isSelected ? null : cat.name)}
+                    className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${isSelected ? 'border-teal-500 bg-teal-50' : 'border-slate-100 hover:border-teal-200 hover:bg-slate-50'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: cat.color }}></div>
+                      <span className="font-medium text-slate-700">{cat.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-slate-800">{formatRupiah(cat.value)}</p>
+                      <p className="text-xs text-slate-500">{percentage.toFixed(1)}%</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Recent Transactions */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-slate-800">Transaksi Terakhir</h3>
-            {transactions.length > 20 && (
+            <h3 className="text-lg font-bold text-slate-800 flex items-center">
+              Transaksi Terakhir 
+              {selectedCategory && (
+                <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                  {selectedCategory}
+                  <button onClick={() => setSelectedCategory(null)} className="ml-1 hover:text-teal-900"><X className="w-3 h-3"/></button>
+                </span>
+              )}
+            </h3>
+            {displayedTransactions.length > 20 && (
               <button 
                 onClick={() => setShowAllTransactions(!showAllTransactions)}
                 className="text-sm text-teal-600 hover:text-teal-700 font-medium"
               >
-                {showAllTransactions ? 'Tampilkan Sedikit' : `Lihat Semua (${transactions.length})`}
+                {showAllTransactions ? 'Tampilkan Sedikit' : `Lihat Semua (${displayedTransactions.length})`}
               </button>
             )}
           </div>
-          {transactions.length === 0 ? (
+          {displayedTransactions.length === 0 ? (
             <div className="text-center py-8 text-slate-400">Belum ada transaksi dicatat. Gunakan fitur Input AI!</div>
           ) : (
             <div className="space-y-3">
-              {(showAllTransactions ? transactions : transactions.slice(0, 20)).map(tx => {
+              {(showAllTransactions ? displayedTransactions : displayedTransactions.slice(0, 20)).map(tx => {
                 const wallet = wallets.find(w => w.id === tx.walletId);
                 const category = categories.find(c => c.name === tx.category);
                 const iconTheme = category ? getIconTheme(category.color) : (tx.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600');

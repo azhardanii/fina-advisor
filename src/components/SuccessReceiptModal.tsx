@@ -40,6 +40,12 @@ export default function SuccessReceiptModal({ transactions, wallets, formatRupia
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm mb-1">
+                    <span className="text-slate-500">Tanggal</span>
+                    <span className="text-slate-600 font-medium">
+                      {new Date(tx.date).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short' })} WIB
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm mb-1">
                     <span className="text-slate-500">Dompet</span>
                     <span className="text-slate-600 font-medium">{walletName}</span>
                   </div>

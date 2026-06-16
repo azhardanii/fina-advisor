@@ -1,20 +1,21 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { LayoutDashboard, Wallet as WalletIcon, Tags, Sparkles, MessageSquarePlus, Menu, X, Activity } from 'lucide-react';
+import { LayoutDashboard, Wallet as WalletIcon, Tags, Sparkles, MessageSquarePlus, Menu, X, Activity, User } from 'lucide-react';
 import { Wallet, Transaction, AllocationProposal, Allocation, Category, AllocationAlgorithm, CustomAlgorithmGroup } from '@/types';
 import DashboardTab from '@/components/DashboardTab';
 import WalletsTab from '@/components/WalletsTab';
 import CategoriesTab from '@/components/CategoriesTab';
 import AiInputTab from '@/components/AiInputTab';
 import AiAdvisorTab from '@/components/AiAdvisorTab';
+import ProfileTab, { UserProfile } from '@/components/ProfileTab';
 import WalletModal from '@/components/WalletModal';
 import AllocationModal from '@/components/AllocationModal';
 import SuccessReceiptModal from '@/components/SuccessReceiptModal';
 import TransactionEditModal from '@/components/TransactionEditModal';
 import TransferModal from '@/components/TransferModal';
 
-type TabType = 'dashboard' | 'wallets' | 'categories' | 'ai-input' | 'ai-advisor';
+type TabType = 'dashboard' | 'wallets' | 'categories' | 'ai-input' | 'ai-advisor' | 'profile';
 
 const NAV_ITEMS: { id: TabType; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -22,6 +23,7 @@ const NAV_ITEMS: { id: TabType; label: string; icon: React.ElementType }[] = [
   { id: 'ai-input', label: 'Input AI', icon: MessageSquarePlus },
   { id: 'categories', label: 'Kategori', icon: Tags },
   { id: 'ai-advisor', label: 'Advisor', icon: Sparkles },
+  { id: 'profile', label: 'Profil', icon: User },
 ];
 
 export default function Home() {
@@ -31,6 +33,7 @@ export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeAlgorithm, setActiveAlgorithm] = useState<AllocationAlgorithm>('50-30-20');
   const [customAlgorithmGroups, setCustomAlgorithmGroups] = useState<CustomAlgorithmGroup[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   
   const [allocationProposal, setAllocationProposal] = useState<AllocationProposal | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -44,15 +47,17 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processMessage, setProcessMessage] = useState('');
   const [sidenavOpen, setSidenavOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // --- Data Fetching ---
   const fetchData = useCallback(async () => {
     try {
-      const [walletsRes, categoriesRes, transactionsRes, settingsRes] = await Promise.all([
+      const [walletsRes, categoriesRes, transactionsRes, settingsRes, profileRes] = await Promise.all([
         fetch('/api/wallets', { cache: 'no-store' }),
         fetch('/api/categories', { cache: 'no-store' }),
         fetch('/api/transactions', { cache: 'no-store' }),
         fetch('/api/settings', { cache: 'no-store' }),
+        fetch('/api/profile', { cache: 'no-store' }),
       ]);
       
       const parseJsonSafely = async (res: Response, fallback: any) => {
@@ -70,11 +75,12 @@ export default function Home() {
         }
       };
 
-      const [walletsData, categoriesData, transactionsData, settingsData] = await Promise.all([
+      const [walletsData, categoriesData, transactionsData, settingsData, profileData] = await Promise.all([
         parseJsonSafely(walletsRes, []),
         parseJsonSafely(categoriesRes, []),
         parseJsonSafely(transactionsRes, []),
         parseJsonSafely(settingsRes, {}),
+        parseJsonSafely(profileRes, null),
       ]);
 
       setWallets(Array.isArray(walletsData) ? walletsData : []);
@@ -86,6 +92,9 @@ export default function Home() {
       }
       if (settingsData.customAlgorithmGroups) {
         try { setCustomAlgorithmGroups(JSON.parse(settingsData.customAlgorithmGroups)); } catch {}
+      }
+      if (profileData && Object.keys(profileData).length > 0) {
+        setUserProfile(profileData);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -206,6 +215,25 @@ export default function Home() {
       setNewWallet({ name: '', balance: 0, color: 'bg-teal-500', bankName: '', accountNumber: '', accountName: '', allocationGroup: '' });
     }
     setShowWalletModal(true);
+  };
+
+  const handleSaveProfile = async (profile: UserProfile) => {
+    setIsProcessing(true);
+    setProcessMessage('Menyimpan profil...');
+    try {
+      await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile),
+      });
+      setUserProfile(profile);
+      alert('Profil berhasil disimpan! FINA sekarang lebih mengenalmu.');
+    } catch (error) {
+      console.error('Save profile failed:', error);
+      alert('Gagal menyimpan profil.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleSaveCategory = async (categoryData: {id?: string, name: string, type: 'income'|'expense', color: string}) => {
@@ -510,7 +538,7 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="pt-14 pb-20 lg:pt-0 lg:pb-0 lg:ml-64 min-h-screen">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        <div className={activeTab === 'ai-input' ? "h-[calc(100vh-136px)] lg:h-auto max-w-5xl mx-auto px-0 md:px-4 sm:px-6 lg:px-8 py-0 lg:py-8" : "max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8"}>
           {activeTab === 'dashboard' && (
             <DashboardTab 
               wallets={wallets} 
@@ -520,6 +548,7 @@ export default function Home() {
               onNavigate={(tab) => setActiveTab(tab as TabType)}
               onEditTransaction={setEditingTransaction}
               onDeleteTransaction={handleDeleteTransaction}
+              onOpenChat={() => setIsChatOpen(true)}
             />
           )}
 
@@ -558,9 +587,20 @@ export default function Home() {
             <AiInputTab 
               wallets={wallets} 
               categories={categories}
+              transactions={transactions}
+              userProfile={userProfile}
               onExecuteTransactions={executeTransactions} 
               onShowAllocationProposal={setAllocationProposal} 
               onShowReceipt={setReceiptTransactions}
+              onSaveCategory={handleSaveCategory}
+              onDataMutated={fetchData}
+            />
+          )}
+
+          {activeTab === 'profile' && (
+            <ProfileTab
+              profile={userProfile}
+              onSaveProfile={handleSaveProfile}
             />
           )}
 
@@ -631,6 +671,52 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Floating Action Button (FAB) for global FINA access */}
+      {activeTab !== 'ai-input' && !isChatOpen && (
+        <button
+          onClick={() => setIsChatOpen(true)}
+          className="fixed bottom-24 lg:bottom-8 right-6 lg:right-8 z-40 w-14 h-14 bg-gradient-to-tr from-teal-500 to-cyan-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-teal-500/30 hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 group"
+          title="Tanya FINA"
+        >
+          <div className="absolute -inset-0.5 bg-gradient-to-tr from-teal-500 to-cyan-500 rounded-full blur opacity-30 group-hover:opacity-50 transition duration-300 animate-pulse"></div>
+          <Sparkles className="w-6 h-6 text-white relative z-10" />
+        </button>
+      )}
+
+      {/* Global Slide-over FINA Chat Drawer */}
+      <div 
+        className={`fixed inset-0 z-50 transition-all duration-300 ${isChatOpen ? 'visible pointer-events-auto' : 'invisible pointer-events-none'}`}
+      >
+        {/* Dark backdrop */}
+        <div 
+          onClick={() => setIsChatOpen(false)}
+          className={`absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 ${isChatOpen ? 'opacity-100' : 'opacity-0'}`}
+        />
+        
+        {/* Drawer container */}
+        <div 
+          className={`absolute inset-y-0 right-0 w-full sm:w-[480px] bg-white shadow-2xl flex flex-col transition-transform duration-300 transform ${isChatOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        >
+          {isChatOpen && (
+            <div className="h-full">
+              <AiInputTab 
+                wallets={wallets} 
+                categories={categories}
+                transactions={transactions}
+                userProfile={userProfile}
+                onExecuteTransactions={executeTransactions} 
+                onShowAllocationProposal={setAllocationProposal} 
+                onShowReceipt={setReceiptTransactions}
+                onSaveCategory={handleSaveCategory}
+                onDataMutated={fetchData}
+                onClose={() => setIsChatOpen(false)}
+                isDrawer={true}
+              />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

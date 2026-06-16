@@ -5,6 +5,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const { id } = await params;
     const body = await req.json();
+
+    const oldCategory = await prisma.category.findUnique({ where: { id } });
+    if (!oldCategory) {
+      return NextResponse.json({ error: 'Kategori tidak ditemukan' }, { status: 404 });
+    }
+
     const category = await prisma.category.update({
       where: { id },
       data: {
@@ -13,6 +19,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         color: body.color,
       },
     });
+
+    if (oldCategory.name !== body.name) {
+      await prisma.transaction.updateMany({
+        where: { category: oldCategory.name },
+        data: { category: body.name },
+      });
+    }
+
     return NextResponse.json(category);
   } catch (error) {
     console.error('PUT /api/categories/[id] error:', error);

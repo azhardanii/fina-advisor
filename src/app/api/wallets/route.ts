@@ -18,17 +18,38 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const wallet = await prisma.wallet.create({
-      data: {
-        name: body.name,
-        balance: body.balance || 0,
-        color: body.color || 'bg-teal-500',
-        bankName: body.bankName || null,
-        accountNumber: body.accountNumber || null,
-        accountName: body.accountName || null,
-        allocationGroup: body.allocationGroup || null,
-      },
+    const balance = body.balance || 0;
+    
+    // Gunakan transaction untuk memastikan wallet dan saldo awalnya tersimpan
+    const wallet = await prisma.$transaction(async (tx: any) => {
+      const newWallet = await tx.wallet.create({
+        data: {
+          name: body.name,
+          balance: balance,
+          color: body.color || 'bg-teal-500',
+          bankName: body.bankName || null,
+          accountNumber: body.accountNumber || null,
+          accountName: body.accountName || null,
+          allocationGroup: body.allocationGroup || null,
+        },
+      });
+
+      if (balance > 0) {
+        await tx.transaction.create({
+          data: {
+            type: 'income',
+            amount: balance,
+            category: 'Saldo Awal',
+            note: 'Saldo awal pembuatan dompet',
+            walletId: newWallet.id,
+            date: new Date(),
+          }
+        });
+      }
+
+      return newWallet;
     });
+
     return NextResponse.json(wallet, { status: 201 });
   } catch (error) {
     console.error('POST /api/wallets error:', error);

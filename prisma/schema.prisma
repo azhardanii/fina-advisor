@@ -1,11 +1,13 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
 }
 
 model Wallet {
@@ -49,4 +51,12 @@ model AppSetting {
   id    String @id @default(cuid())
   key   String @unique
   value String // JSON string
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  role      String   // "user" or "model"
+  content   String   @db.Text
+  embedding Unsupported("vector(768)")?
+  createdAt DateTime @default(now())
 }

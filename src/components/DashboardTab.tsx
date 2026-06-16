@@ -12,11 +12,20 @@ interface DashboardTabProps {
   onNavigate: (tab: string) => void;
   onEditTransaction?: (tx: Transaction) => void;
   onDeleteTransaction?: (id: string) => void;
+  onOpenChat?: () => void;
 }
 
-export default function DashboardTab({ wallets, transactions, categories, formatRupiah, onNavigate, onEditTransaction, onDeleteTransaction }: DashboardTabProps) {
+export default function DashboardTab({ wallets, transactions, categories, formatRupiah, onNavigate, onEditTransaction, onDeleteTransaction, onOpenChat }: DashboardTabProps) {
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const handleStartChat = () => {
+    if (onOpenChat) {
+      onOpenChat();
+    } else {
+      onNavigate('ai-input');
+    }
+  };
 
   const isEditable = (dateStr: string) => {
     return Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000;
@@ -102,10 +111,9 @@ export default function DashboardTab({ wallets, transactions, categories, format
                 3
               </div>
               <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-3rem)] p-5 rounded-2xl bg-white border border-slate-200 shadow-sm transition-all hover:shadow-md ${wallets.length === 0 ? 'opacity-60' : ''}`}>
-                <h3 className="font-bold text-slate-800 mb-1">Mulai Catat Transaksi</h3>
                 <p className="text-sm text-slate-500 mb-4">Gunakan Input AI untuk mencatat pengeluaran Kamu secepat kilat menggunakan bahasa sehari-hari.</p>
                 {transactions.length === 0 ? (
-                  <button disabled={wallets.length === 0} onClick={() => onNavigate('ai-input')} className="bg-teal-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors shadow-sm">Coba Input AI Sekarang</button>
+                  <button disabled={wallets.length === 0} onClick={handleStartChat} className="bg-teal-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors shadow-sm">Coba Input AI Sekarang</button>
                 ) : (
                   <span className="text-teal-600 text-sm font-bold flex items-center">✓ Selesai</span>
                 )}
@@ -140,13 +148,40 @@ export default function DashboardTab({ wallets, transactions, categories, format
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        {/* Pinned Wallets */}
-        {wallets.filter(w => w.isPinned).length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-              <Pin className="w-5 h-5 mr-2 text-amber-500" fill="currentColor" /> Dompet Pilihan
+      {/* FINA Chat Hero Section */}
+      <div className="bg-gradient-to-br from-teal-900 via-teal-850 to-cyan-900 rounded-2xl shadow-lg border border-teal-800/40 p-5 sm:p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 overflow-hidden relative group">
+        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-teal-500/20 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500"></div>
+        <div className="absolute -left-10 -top-10 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl"></div>
+        
+        <div className="flex items-start gap-4 relative z-10">
+          <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 border border-white/20 shadow-inner group-hover:rotate-6 transition-transform duration-300">
+            <Sparkles className="w-6 h-6 text-cyan-300 animate-pulse" />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-white mb-0.5 flex items-center gap-2">
+              Tanya FINA <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-teal-400 text-teal-950 uppercase tracking-wider">AI Assistant</span>
             </h3>
+            <p className="text-sm text-teal-100/80 max-w-xl">
+              Catat transaksi otomatis pakai bahasa sehari-hari, ganti kategori, atau minta ringkasan laporan keuanganmu langsung ke FINA.
+            </p>
+          </div>
+        </div>
+        
+        <button 
+          onClick={handleStartChat}
+          className="relative z-10 bg-gradient-to-r from-teal-400 to-cyan-400 hover:from-teal-300 hover:to-cyan-300 text-teal-950 font-bold px-6 py-3 rounded-xl active:scale-95 transition-all shadow-md shadow-cyan-500/20 text-sm whitespace-nowrap"
+        >
+          Mulai Chat Sekarang
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        {/* Pinned Wallets Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+            <Pin className="w-5 h-5 mr-2 text-amber-500" fill="currentColor" /> Dompet Pilihan
+          </h3>
+          {wallets.filter(w => w.isPinned).length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {wallets.filter(w => w.isPinned).map(wallet => (
                 <div 
@@ -168,30 +203,18 @@ export default function DashboardTab({ wallets, transactions, categories, format
                 </div>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* Wallet Distribution Chart (CSS Based for reliability) */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-            <PieChartIcon className="w-5 h-5 mr-2 text-teal-500"/> Alokasi Dompet
-          </h3>
-          <div className="space-y-4 mt-6">
-            {[...wallets].sort((a,b) => b.balance - a.balance).map(wallet => {
-              const percentage = getTotalBalance() === 0 ? 0 : (wallet.balance / getTotalBalance()) * 100;
-              return (
-                <div key={wallet.id} className="relative">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium text-slate-700">{wallet.name}</span>
-                    <span className="text-slate-500">{formatRupiah(wallet.balance)} ({percentage.toFixed(1)}%)</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2.5">
-                    <div className={`h-2.5 rounded-full ${wallet.color}`} style={{ width: `${percentage}%` }}></div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          ) : (
+            <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
+              <p className="text-slate-500 mb-4">Belum ada dompet yang ditampilkan untuk akses cepat.</p>
+              <button 
+                onClick={() => onNavigate('wallets')}
+                className="bg-teal-100 text-teal-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-teal-200 transition-colors inline-flex items-center"
+              >
+                <WalletIcon className="w-4 h-4 mr-2" />
+                Pilih Dompet Sekarang
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -290,13 +313,14 @@ export default function DashboardTab({ wallets, transactions, categories, format
                       {tx.type === 'income' ? <ArrowDownCircle className="w-5 h-5"/> : <ArrowUpCircle className="w-5 h-5"/>}
                     </div>
                     <div>
-                      <p className="font-semibold text-slate-800">{tx.category}</p>
-                      <div className="flex items-center text-xs text-slate-500 space-x-2">
+                      <p className="font-semibold text-slate-800">{tx.note || 'Transaksi'}</p>
+                      <div className="flex items-center text-xs text-slate-500 space-x-2 mt-0.5">
+                        <span className="font-medium text-teal-700">{tx.category}</span>
+                        <span>•</span>
                         <span>{new Date(tx.date).toLocaleDateString('id-ID')}</span>
                         <span>•</span>
                         <span className={`px-2 py-0.5 rounded-full text-white ${wallet?.color || 'bg-gray-400'}`}>{wallet?.name || 'Unknown'}</span>
                       </div>
-                      {tx.note && <p className="text-xs text-slate-500 mt-0.5">{tx.note}</p>}
                     </div>
                   </div>
                   <div className="flex flex-col items-end">

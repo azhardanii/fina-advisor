@@ -31,22 +31,24 @@ export async function POST(req: Request) {
 
     // Router Logic
     const lastMessage = messages[messages.length - 1].content;
-    
+
     // 1. Generate Embedding for User's Message
     let userEmbedding: number[] = [];
-    try {
-      const embedResponse = await client.models.embedContent({
-        model: 'gemini-embedding-2',
-        contents: lastMessage,
-        config: {
-          outputDimensionality: 768
+    if (lastMessage && lastMessage.trim().length > 0) {
+      try {
+        const embedResponse = await client.models.embedContent({
+          model: 'gemini-embedding-2',
+          contents: lastMessage,
+          config: {
+            outputDimensionality: 768
+          }
+        });
+        if (embedResponse.embeddings && embedResponse.embeddings[0]) {
+          userEmbedding = embedResponse.embeddings[0].values || [];
         }
-      });
-      if (embedResponse.embeddings && embedResponse.embeddings[0]) {
-        userEmbedding = embedResponse.embeddings[0].values || [];
+      } catch (e) {
+        console.warn("Gagal membuat embedding:", e);
       }
-    } catch (e) {
-      console.warn("Gagal membuat embedding:", e);
     }
 
     // 2. Save User Message to Database
@@ -73,7 +75,7 @@ export async function POST(req: Request) {
         LIMIT 5;
       `;
       if (nearestMessages && nearestMessages.length > 0) {
-        ragContext = "\n\nMEMORI BAWAH SADAR (Konteks Historis Relevan):\n" + 
+        ragContext = "\n\nMEMORI BAWAH SADAR (Konteks Historis Relevan):\n" +
           nearestMessages.map(m => `[${m.role.toUpperCase()}]: ${m.content}`).join('\n');
       }
     }
@@ -93,7 +95,7 @@ export async function POST(req: Request) {
 Kamu berinteraksi dengan user melalui antarmuka CHAT.
 Selalu balas dengan gaya bahasa yang sesuai dengan preferensi user (atau santai/ramah jika tidak ada).
 Daftar Wallet User saat ini (beserta ID dan Balance): ${JSON.stringify(mappedWallets)}.
-Daftar Kategori yang Tersedia: ${JSON.stringify(categories.map((c: any) => ({ name: c.name, type: c.type }))) }.
+Daftar Kategori yang Tersedia: ${JSON.stringify(categories.map((c: any) => ({ name: c.name, type: c.type })))}.
 Histori 50 Transaksi Terakhir User: ${JSON.stringify(mappedTransactions)}.${ragContext}
 
 PENTING:
@@ -171,6 +173,13 @@ Actions yang didukung (Pilih tipe yang sesuai):
 - actionType="UPDATE_PROFILE" -> data: { "financialGoal": "Menikah tahun depan" }
 - actionType="CREATE_WALLET" -> data: { "name": "BNI", "balance": 0 }
 - actionType="UPDATE_WALLET" -> data: { "walletId": "ID dari dompet BCA", "balance": 1000000 }
+
+5. RECOMMEND_ADVISOR:
+Keluarkan action ini JIKA user meminta saran/evaluasi keuangan secara umum. Kamu berikan ringkasan sederhana di \`replyMessage\`, lalu sertakan action ini agar UI memunculkan tombol ke fitur Advisor untuk evaluasi komprehensif.
+{
+  "type": "RECOMMEND_ADVISOR",
+  "payload": {}
+}
 
 Contoh Kasus DYNAMIC_ACTION:
 User: "hapus semua pengeluaran dong"
@@ -250,7 +259,7 @@ Balasanmu:
     await prisma.chatMessage.create({
       data: { role: 'model', content: aiReplyText }
     });
-    
+
     return NextResponse.json(parsedReply);
 
   } catch (error: any) {

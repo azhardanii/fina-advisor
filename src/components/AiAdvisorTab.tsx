@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Download, FileText, TrendingUp, TrendingDown, RefreshCcw, Loader2, Volume2, Square } from 'lucide-react';
+import { Sparkles, Download, FileText, TrendingUp, TrendingDown, RefreshCcw, Loader2, Volume2, Square, Calendar, Clock, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Wallet, Transaction } from '@/types';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface AiAdvisorTabProps {
   wallets: Wallet[];
@@ -10,22 +11,33 @@ interface AiAdvisorTabProps {
   formatRupiah: (number: number) => string;
 }
 
+const COLORS = ['#14b8a6', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#f97316', '#eab308', '#84cc16'];
+
 export default function AiAdvisorTab({ wallets, transactions, formatRupiah }: AiAdvisorTabProps) {
   const [advice, setAdvice] = useState<string>('');
+  const [chartData, setChartData] = useState<any>(null);
+
   const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
-  
+
   const [evaluatedTransactions, setEvaluatedTransactions] = useState<Transaction[]>([]);
   const [evaluatedWallets, setEvaluatedWallets] = useState<Wallet[]>([]);
-  
+
+  // Date Filters
+  const [dateRange, setDateRange] = useState<string>('bulan_ini');
+  const [customStart, setCustomStart] = useState<string>('');
+  const [customEnd, setCustomEnd] = useState<string>('');
+
+  // History
+  const [historyList, setHistoryList] = useState<any[]>([]);
+  const [viewMode, setViewMode] = useState<'evaluate' | 'history'>('evaluate');
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
   const pdfContainerRef = useRef<HTMLDivElement>(null);
-  
-  // Refs to fix Chrome TTS bugs (garbage collection & stale state)
   const isSpeakingRef = useRef<boolean>(false);
   const utterancesRef = useRef<SpeechSynthesisUtterance[]>([]);
 
-  // Stop speaking when component unmounts
   useEffect(() => {
     return () => {
       if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -34,52 +46,100 @@ export default function AiAdvisorTab({ wallets, transactions, formatRupiah }: Ai
     };
   }, []);
 
+  useEffect(() => {
+    if (viewMode === 'history') {
+      fetchHistory();
+    }
+  }, [viewMode]);
+
+  const fetchHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const res = await fetch('/api/advisor/history');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setHistoryList(data);
+      } else {
+        console.error("API did not return an array:", data);
+        setHistoryList([]);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const loadHistoryItem = (item: any) => {
+    setAdvice(item.advice);
+    try {
+      if (item.chartData) setChartData(JSON.parse(item.chartData));
+      else setChartData(null);
+    } catch (e) { setChartData(null); }
+
+    setDateRange(item.dateRange);
+    setViewMode('evaluate');
+    // Set dummy evaluated tx just to show we loaded history, or we could fetch them.
+    setEvaluatedTransactions([]);
+    setEvaluatedWallets(wallets);
+  };
+
   const getTotalBalance = (wals: Wallet[]) => wals.reduce((sum, w) => sum + w.balance, 0);
 
   const getFinancialAdvice = async () => {
     setIsEvaluating(true);
-    setEvaluatedTransactions(transactions);
     setEvaluatedWallets(wallets);
-    
-    // Stop speaking if currently speaking
+
+    // Filter TX locally for UI context
+    let filteredTx = [...transactions];
+    const now = new Date();
+    if (dateRange === 'hari_ini') {
+      const start = new Date(now.setHours(0, 0, 0, 0));
+      filteredTx = filteredTx.filter(t => new Date(t.date) >= start);
+    } else if (dateRange === 'bulan_ini') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      filteredTx = filteredTx.filter(t => new Date(t.date) >= start);
+    } else if (dateRange === 'tahun_ini') {
+      const start = new Date(now.getFullYear(), 0, 1);
+      filteredTx = filteredTx.filter(t => new Date(t.date) >= start);
+    } else if (dateRange === 'custom' && customStart && customEnd) {
+      const start = new Date(customStart).setHours(0, 0, 0, 0);
+      const end = new Date(customEnd).setHours(23, 59, 59, 999);
+      filteredTx = filteredTx.filter(t => {
+        const time = new Date(t.date).getTime();
+        return time >= start && time <= end;
+      });
+    }
+    setEvaluatedTransactions(filteredTx);
+
     if (isSpeaking && typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
       isSpeakingRef.current = false;
     }
-    
+
     try {
-      const prompt = `Kamu adalah Financial Advisor Pribadi kelas dunia.
-Tugas Kamu adalah mengevaluasi kondisi keuangan user berdasarkan data berikut.
-
-Data Dompet Saat Ini:
-${JSON.stringify(wallets, null, 2)}
-Total Saldo Aktif: ${getTotalBalance(wallets)}
-
-Riwayat Transaksi Keseluruhan:
-${JSON.stringify(transactions, null, 2)}
-
-Berikan evaluasi mendalam, insight, peringatan (jika ada pola pengeluaran buruk), dan rekomendasi tindakan konkrit (actionable advice).
-FORMAT RESPON:
-- Gunakan bahasa Indonesia yang ramah, profesional, *engaging*, dan memotivasi.
-- Wajib gunakan Markdown: Gunakan header (##, ###), teks **bold** untuk poin penting, *italic*, bullet points (-), dan tabel jika diperlukan.
-- Gunakan emoji yang relevan secukupnya agar tidak kaku, tapi jangan berlebihan.
-- Buat responnya mudah dibaca dan di-scan oleh mata (scannable).
-- Jangan berikan balasan dalam format JSON, berikan langsung tulisan artikel markdown yang rapi.`;
-
-      const response = await fetch('/api/gemini', {
+      const response = await fetch('/api/advisor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'gemini-3.5-flash',
-          contents: [{ parts: [{ text: prompt }] }]
+          dateRange,
+          customStart,
+          customEnd
         })
       });
 
       if (!response.ok) throw new Error('API Error');
 
       const data = await response.json();
-      setAdvice(data.candidates?.[0]?.content?.parts?.[0]?.text || "Gagal mendapatkan evaluasi.");
+      setAdvice(data.advice || "Gagal mendapatkan evaluasi.");
+      if (data.chartData) {
+        try {
+          setChartData(JSON.parse(data.chartData));
+        } catch (e) { setChartData(null); }
+      } else {
+        setChartData(null);
+      }
     } catch (error) {
       setAdvice("Terjadi kesalahan koneksi saat meminta evaluasi AI. Silakan coba lagi.");
     } finally {
@@ -89,22 +149,18 @@ FORMAT RESPON:
 
   const exportToPdf = async () => {
     if (!advice || !pdfContainerRef.current) return;
-    
+
     setIsExporting(true);
     try {
-      // Dynamically import html2pdf to avoid SSR issues
       const html2pdf = (await import('html2pdf.js')).default;
-      
       const element = pdfContainerRef.current;
       const opt = {
-        margin:       15,
-        filename:     "Laporan_AI_Advisor_" + new Date().toISOString().split('T')[0] + ".pdf",
-        image:        { type: 'jpeg' as 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' as 'portrait' }
+        margin: 15,
+        filename: "Laporan_AI_Advisor_" + new Date().toISOString().split('T')[0] + ".pdf",
+        image: { type: 'jpeg' as 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as 'portrait' }
       };
-
-      // Ensure the container is temporarily visible for rendering if it was display: none
       await html2pdf().from(element).set(opt).save();
     } catch (error) {
       console.error("Gagal mengekspor PDF:", error);
@@ -115,10 +171,7 @@ FORMAT RESPON:
   };
 
   const toggleSpeech = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      alert("Browser Kamu tidak mendukung fitur pemutar suara (Text-to-Speech).");
-      return;
-    }
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
     if (isSpeaking) {
       window.speechSynthesis.cancel();
@@ -126,21 +179,27 @@ FORMAT RESPON:
       isSpeakingRef.current = false;
     } else {
       if (!advice) return;
-      
-      window.speechSynthesis.cancel(); // Reset any pending utterances
-      
-      // Strip markdown characters to make speech cleaner
-      const plainText = advice.replace(/[*#_\`\\[\\]()]/g, '');
-      
-      // Sangat aman: pecah berdasarkan titik, tanda tanya, seru, atau baris baru
-      const sentences = plainText.split(/[.!?\\n]+/).map(s => s.trim()).filter(s => s.length > 0);
-      
+      window.speechSynthesis.cancel();
+
+      // Bersihkan teks dari simbol markdown dan perbaiki bacaan
+      let cleanText = advice
+        .replace(/[*#_`\[\]()\-:]/g, ' ') // Ganti simbol dengan spasi agar kata tidak menempel
+        .replace(/\bRp\b/g, 'Rupiah') // Perbaiki bacaan Rp
+        .replace(/Rp\./g, 'Rupiah ')
+        .replace(/Rp /g, 'Rupiah ')
+        .replace(/(?<=\d)\.(?=\d)/g, ''); // Hapus titik dalam angka agar tidak dieja putus-putus
+
+      const sentences = cleanText.split(/[.!?\n]+/).map(s => s.trim()).filter(s => s.length > 0);
+
       setIsSpeaking(true);
       isSpeakingRef.current = true;
       utterancesRef.current = [];
 
       let currentIndex = 0;
-      
+
+      // Panggil getVoices() agar browser memuat daftar suara (workaround untuk Chrome)
+      window.speechSynthesis.getVoices();
+
       const speakNextChunk = () => {
         if (!isSpeakingRef.current) return;
         if (currentIndex >= sentences.length) {
@@ -151,42 +210,36 @@ FORMAT RESPON:
 
         const chunk = sentences[currentIndex];
         const utterance = new SpeechSynthesisUtterance(chunk);
-        
-        // Try to find Indonesian voice if available
+
         const voices = window.speechSynthesis.getVoices();
         const idVoice = voices.find(v => v.lang === 'id-ID' || v.lang === 'id_ID');
         if (idVoice) utterance.voice = idVoice;
         else utterance.lang = 'id-ID';
 
-        utterance.rate = 1.0;
-        
+        utterance.rate = 1.15;
+        utterance.pitch = 1.0;
+
         utterance.onend = () => {
           currentIndex++;
-          speakNextChunk();
+          setTimeout(() => speakNextChunk(), 200); // Jeda kecil antar kalimat agar natural
         };
-        
         utterance.onerror = (e) => {
-          console.error("Speech error:", e);
+          if (isSpeakingRef.current) {
+            console.error("TTS Error:", e);
+          }
           setIsSpeaking(false);
           isSpeakingRef.current = false;
         };
 
-        utterancesRef.current.push(utterance); // Keep ref to prevent Garbage Collection bug in Chrome
-        
-        // Beri jeda sangat kecil agar cancel() dari baris atas tidak bertabrakan dengan speak()
-        setTimeout(() => {
-          window.speechSynthesis.speak(utterance);
-        }, 50);
+        utterancesRef.current.push(utterance);
+        window.speechSynthesis.speak(utterance);
       };
 
-      // Beri jeda awal untuk memberikan browser waktu load voices & reset memory
-      setTimeout(() => {
-        speakNextChunk();
-      }, 100);
+      // Panggil langsung secara sinkron dengan interaksi user agar tidak diblokir browser
+      speakNextChunk();
     }
   };
 
-  // Custom Markdown Styles ensuring perfect spacing, typography, and TABLE styling
   const markdownStyles = "text-slate-700 leading-relaxed " +
     "[&>h1]:text-2xl [&>h1]:font-bold [&>h1]:text-teal-900 [&>h1]:mb-6 [&>h1]:mt-8 " +
     "[&>h2]:text-xl [&>h2]:font-bold [&>h2]:text-teal-800 [&>h2]:mb-4 [&>h2]:mt-6 [&>h2]:border-b [&>h2]:border-slate-200 [&>h2]:pb-2 " +
@@ -206,220 +259,272 @@ FORMAT RESPON:
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 flex items-center">
-            <Sparkles className="w-6 h-6 mr-2 text-teal-600"/> AI Financial Advisor
+            <Sparkles className="w-6 h-6 mr-2 text-teal-600" /> AI Financial Advisor
           </h2>
           <p className="text-slate-500 text-sm mt-1">Konsultan pribadi untuk menganalisa kesehatan keuangan Kamu</p>
         </div>
-        
-        <div className="flex flex-wrap items-center gap-2">
-          {advice && (
-            <>
-              <button 
-                onClick={toggleSpeech}
-                className={`border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-medium flex items-center transition-all shadow-sm ${isSpeaking ? 'bg-teal-50 border-teal-300 text-teal-700' : 'bg-white hover:bg-slate-50'}`}
-              >
-                {isSpeaking ? (
-                  <><Square className="w-4 h-4 mr-2 text-teal-600 fill-teal-600"/> Hentikan Suara</>
-                ) : (
-                  <><Volume2 className="w-4 h-4 mr-2"/> Dengarkan</>
-                )}
-              </button>
 
-              <button 
-                onClick={exportToPdf}
-                disabled={isExporting}
-                className={`bg-white border border-slate-300 text-slate-700 ${isExporting ? 'opacity-70 cursor-wait' : 'hover:bg-slate-50'} px-4 py-2 rounded-lg font-medium flex items-center transition-colors shadow-sm`}
-              >
-                {isExporting ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin"/> Membuat PDF...</>
-                ) : (
-                  <><Download className="w-4 h-4 mr-2"/> Export (.pdf)</>
-                )}
-              </button>
-            </>
-          )}
-          <button 
-            onClick={getFinancialAdvice}
-            disabled={isEvaluating || isExporting}
-            className={`${isEvaluating ? 'bg-teal-400 cursor-wait' : 'bg-teal-600 hover:bg-teal-700 shadow-md hover:shadow-teal-500/30'} text-white px-5 py-2 rounded-lg font-bold flex items-center transition-all`}
+        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+          <button
+            onClick={() => setViewMode('evaluate')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${viewMode === 'evaluate' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
           >
-            {isEvaluating ? (
-              <><RefreshCcw className="w-4 h-4 mr-2 animate-spin"/> Menganalisa...</>
-            ) : (
-              <><Sparkles className="w-4 h-4 mr-2"/> {advice ? 'Evaluasi Ulang' : 'Mulai Evaluasi'}</>
-            )}
+            Evaluasi
+          </button>
+          <button
+            onClick={() => setViewMode('history')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-1.5 ${viewMode === 'history' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <Clock size={16} /> Riwayat
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main AI Response Section */}
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[500px]">
-          <div className="bg-teal-50 border-b border-teal-100 px-6 py-4 flex items-center justify-between shrink-0">
-            <h3 className="font-bold text-teal-900 flex items-center">
-              <Sparkles className="w-5 h-5 mr-2 text-teal-600"/> Laporan Evaluasi & Insight
-            </h3>
-            {isSpeaking && (
-              <div className="flex space-x-1">
-                <span className="w-1.5 h-4 bg-teal-500 rounded-full animate-pulse"></span>
-                <span className="w-1.5 h-6 bg-teal-500 rounded-full animate-pulse delay-75"></span>
-                <span className="w-1.5 h-3 bg-teal-500 rounded-full animate-pulse delay-150"></span>
-                <span className="w-1.5 h-5 bg-teal-500 rounded-full animate-pulse delay-300"></span>
-              </div>
-            )}
-          </div>
-          
-          <div className="p-6 md:p-8 flex-grow overflow-y-auto">
-            {isEvaluating ? (
-              <div className="flex flex-col items-center justify-center h-full space-y-4 py-12">
-                <div className="relative">
-                  <div className="w-16 h-16 border-4 border-teal-100 rounded-full animate-pulse"></div>
-                  <Sparkles className="w-8 h-8 text-teal-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-spin" />
-                </div>
-                <p className="text-teal-700 font-medium">Membaca seluruh riwayat transaksi Kamu...</p>
-              </div>
-            ) : advice ? (
-              <div className={`max-w-none ${markdownStyles}`}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {advice}
-                </ReactMarkdown>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-                <img src="https://illustrations.popsy.co/teal/surreal-hourglass.svg" alt="Advisor Empty" className="w-48 opacity-60 mb-6" />
-                <h3 className="text-lg font-bold text-slate-700 mb-2">Belum ada laporan</h3>
-                <p className="text-slate-500 max-w-sm">Klik tombol "Mulai Evaluasi" di atas untuk mendapatkan analisa menyeluruh terkait kebiasaan finansial Kamu.</p>
-              </div>
-            )}
-          </div>
-        </div>
+      {viewMode === 'evaluate' ? (
+        <>
+          <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex-1 flex items-center gap-3 w-full">
+              <Calendar className="text-slate-400 w-5 h-5 shrink-0" />
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="w-full md:w-auto p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-teal-500 outline-none"
+              >
+                <option value="hari_ini">Hari Ini</option>
+                <option value="bulan_ini">Bulan Ini</option>
+                <option value="tahun_ini">Tahun Ini</option>
+                <option value="semua">Semua Waktu</option>
+                <option value="custom">Custom Tanggal</option>
+              </select>
 
-        {/* Evaluated Data Context */}
-        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 h-fit">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center">
-            <FileText className="w-5 h-5 mr-2 text-slate-500"/> Data yang Dievaluasi
-          </h3>
-          
-          {!advice && !isEvaluating ? (
-             <p className="text-sm text-slate-500 text-center py-8">Data akan muncul di sini setelah evaluasi dilakukan.</p>
-          ) : (
-            <div className="space-y-6">
-              <div>
-                <h4 className="text-sm font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2">Status Saldo</h4>
-                <div className="space-y-2">
-                  {evaluatedWallets.map(w => (
-                    <div key={w.id} className="flex justify-between text-sm">
-                      <span className="text-slate-600 truncate mr-2">{w.name}</span>
-                      <span className="font-medium text-slate-800">{formatRupiah(w.balance)}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between text-sm font-bold pt-2 border-t border-slate-200">
-                    <span className="text-slate-800">Total Kekayaan</span>
-                    <span className="text-teal-700">{formatRupiah(getTotalBalance(evaluatedWallets))}</span>
-                  </div>
+              {dateRange === 'custom' && (
+                <div className="flex items-center gap-2 animate-in slide-in-from-left-2 fade-in">
+                  <input
+                    type="date"
+                    value={customStart}
+                    onChange={e => setCustomStart(e.target.value)}
+                    className="p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                  <span className="text-slate-400">-</span>
+                  <input
+                    type="date"
+                    value={customEnd}
+                    onChange={e => setCustomEnd(e.target.value)}
+                    className="p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-500"
+                  />
                 </div>
-              </div>
+              )}
+            </div>
 
-              <div>
-                <h4 className="text-sm font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2">
-                  Riwayat Transaksi ({evaluatedTransactions.length})
-                </h4>
-                {evaluatedTransactions.length === 0 ? (
-                  <p className="text-xs text-slate-500">Tidak ada transaksi</p>
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              <button
+                onClick={getFinancialAdvice}
+                disabled={isEvaluating || isExporting}
+                className={`${isEvaluating ? 'bg-teal-400 cursor-wait' : 'bg-teal-600 hover:bg-teal-700 shadow-md'} text-white px-5 py-2 rounded-lg font-bold flex items-center transition-all w-full md:w-auto justify-center`}
+              >
+                {isEvaluating ? (
+                  <><RefreshCcw className="w-4 h-4 mr-2 animate-spin" /> Menganalisa...</>
                 ) : (
-                  <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
-                    {evaluatedTransactions.slice().reverse().map(tx => (
-                      <div key={tx.id} className="bg-white p-3 rounded-xl border border-slate-200 flex justify-between items-start shadow-sm">
-                        <div className="flex-1 min-w-0 pr-2">
-                          <div className="flex items-center space-x-1">
-                            {tx.type === 'income' ? <TrendingUp className="w-3 h-3 text-green-500"/> : <TrendingDown className="w-3 h-3 text-red-500"/>}
-                            <p className="text-xs font-bold text-slate-800 truncate">{tx.category}</p>
-                          </div>
-                          <p className="text-[10px] text-slate-500 mt-0.5">{new Date(tx.date).toLocaleDateString('id-ID')}</p>
-                          {tx.note && <p className="text-[10px] text-slate-600 truncate mt-1 italic">"{tx.note}"</p>}
-                        </div>
-                        <div className={`text-xs font-bold shrink-0 ${tx.type === 'income' ? 'text-green-600' : 'text-slate-800'}`}>
-                          {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <><Sparkles className="w-4 h-4 mr-2" /> Evaluasi</>
                 )}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              {/* Chart Visualizations */}
+              {chartData && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {chartData.pieData && chartData.pieData.length > 0 && (
+                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                      <h4 className="text-sm font-bold text-slate-700 text-center mb-4">Pengeluaran per Kategori</h4>
+                      <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={chartData.pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={70}>
+                              {chartData.pieData.map((_: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value: any) => formatRupiah(Number(value))} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                  {chartData.barData && chartData.barData.length > 0 && (
+                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                      <h4 className="text-sm font-bold text-slate-700 text-center mb-4">Pemasukan vs Pengeluaran</h4>
+                      <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={chartData.barData}>
+                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                            <Tooltip formatter={(value: any) => formatRupiah(Number(value))} />
+                            <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+                              {chartData.barData.map((entry: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={entry.name.toLowerCase() === 'pengeluaran' || entry.name.toLowerCase() === 'expense' ? '#ef4444' : '#10b981'} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Main AI Response Section */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[500px]">
+                <div className="bg-teal-50 border-b border-teal-100 px-6 py-4 flex items-center justify-between shrink-0">
+                  <h3 className="font-bold text-teal-900 flex items-center">
+                    <Sparkles className="w-5 h-5 mr-2 text-teal-600" /> Laporan Evaluasi & Insight
+                  </h3>
+                  {advice && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={toggleSpeech}
+                        className={`px-3 py-1.5 rounded-lg font-bold text-sm flex items-center transition-all shadow-sm ${isSpeaking ? 'bg-teal-600 text-white' : 'bg-white text-teal-700 border border-teal-200 hover:bg-teal-100'}`}
+                      >
+                        {isSpeaking ? (
+                          <><Square className="w-4 h-4 mr-1.5 fill-current" /> Stop</>
+                        ) : (
+                          <><Volume2 className="w-4 h-4 mr-1.5" /> Dengar</>
+                        )}
+                      </button>
+                      <button
+                        onClick={exportToPdf}
+                        disabled={isExporting}
+                        className="bg-white border border-teal-200 text-teal-700 hover:bg-teal-100 px-3 py-1.5 rounded-lg font-bold text-sm flex items-center shadow-sm"
+                        title="Download PDF"
+                      >
+                        {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-6 md:p-8 flex-grow overflow-y-auto">
+                  {isEvaluating ? (
+                    <div className="flex flex-col items-center justify-center h-full space-y-4 py-12">
+                      <div className="relative">
+                        <div className="w-16 h-16 border-4 border-teal-100 rounded-full animate-pulse"></div>
+                        <Sparkles className="w-8 h-8 text-teal-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-spin" />
+                      </div>
+                      <p className="text-teal-700 font-medium">Membaca seluruh riwayat transaksi Kamu...</p>
+                    </div>
+                  ) : advice ? (
+                    <div className={`max-w-none ${markdownStyles}`}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {advice}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full py-12 text-center">
+                      <img src="https://illustrations.popsy.co/teal/surreal-hourglass.svg" alt="Advisor Empty" className="w-48 opacity-60 mb-6" />
+                      <h3 className="text-lg font-bold text-slate-700 mb-2">Belum ada laporan</h3>
+                      <p className="text-slate-500 max-w-sm">Pilih rentang tanggal dan klik "Evaluasi" untuk mendapatkan analisa AI.</p>
+                    </div>
+                  )}
+                </div>
               </div>
+            </div>
+
+            {/* Evaluated Data Context */}
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 h-fit">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center">
+                <FileText className="w-5 h-5 mr-2 text-slate-500" /> Data yang Dievaluasi
+              </h3>
+
+              {!advice && !isEvaluating ? (
+                <p className="text-sm text-slate-500 text-center py-8">Data akan muncul di sini setelah evaluasi dilakukan.</p>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2">Status Saldo</h4>
+                    <div className="space-y-2">
+                      {evaluatedWallets.map(w => (
+                        <div key={w.id} className="flex justify-between text-sm">
+                          <span className="text-slate-600 truncate mr-2">{w.name}</span>
+                          <span className="font-medium text-slate-800">{formatRupiah(w.balance)}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between text-sm font-bold pt-2 border-t border-slate-200">
+                        <span className="text-slate-800">Total Kekayaan</span>
+                        <span className="text-teal-700">{formatRupiah(getTotalBalance(evaluatedWallets))}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2">
+                      Riwayat Transaksi Terkait ({evaluatedTransactions.length})
+                    </h4>
+                    {evaluatedTransactions.length === 0 ? (
+                      <p className="text-xs text-slate-500">Tidak ada transaksi yang ter-load/ditampilkan</p>
+                    ) : (
+                      <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                        {evaluatedTransactions.slice().reverse().map(tx => (
+                          <div key={tx.id} className="bg-white p-3 rounded-xl border border-slate-200 flex justify-between items-start shadow-sm">
+                            <div className="flex-1 min-w-0 pr-2">
+                              <div className="flex items-center space-x-1">
+                                {tx.type === 'income' ? <TrendingUp className="w-3 h-3 text-green-500" /> : <TrendingDown className="w-3 h-3 text-red-500" />}
+                                <p className="text-xs font-bold text-slate-800 truncate">{tx.category}</p>
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-0.5">{new Date(tx.date).toLocaleDateString('id-ID')}</p>
+                              {tx.note && <p className="text-[10px] text-slate-600 truncate mt-1 italic">"{tx.note}"</p>}
+                            </div>
+                            <div className={`text-xs font-bold shrink-0 ${tx.type === 'income' ? 'text-green-600' : 'text-slate-800'}`}>
+                              {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[500px]">
+          <h3 className="font-bold text-slate-800 mb-4 text-lg">Riwayat Evaluasi FINA</h3>
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-teal-500" /></div>
+          ) : historyList.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">Belum ada riwayat evaluasi.</div>
+          ) : (
+            <div className="space-y-3">
+              {historyList.map(h => (
+                <button
+                  key={h.id}
+                  onClick={() => loadHistoryItem(h)}
+                  className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 rounded-xl transition-all text-left group"
+                >
+                  <div>
+                    <h4 className="font-bold text-slate-800 group-hover:text-teal-800">Evaluasi: {h.dateRange.replace('_', ' ').toUpperCase()}</h4>
+                    <p className="text-xs text-slate-500 mt-1">{new Date(h.createdAt).toLocaleString('id-ID')}</p>
+                  </div>
+                  <ChevronRight className="text-slate-400 group-hover:text-teal-600" />
+                </button>
+              ))}
             </div>
           )}
         </div>
-      </div>
+      )}
 
       {/* Hidden PDF Container */}
       <div className="absolute top-[-9999px] left-[-9999px] w-[800px] bg-white text-slate-800 p-8 z-[-1]" aria-hidden="true">
         <div ref={pdfContainerRef} className="bg-white font-sans text-slate-800 w-[800px] p-6 pb-20">
           <div className="border-b-2 border-teal-600 pb-4 mb-6">
             <h1 className="text-3xl font-bold text-teal-800">Laporan Evaluasi AI Advisor</h1>
-            <p className="text-slate-500 mt-1">Fina Advisor - {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            <p className="text-slate-500 mt-1">Fina Advisor - {new Date().toLocaleDateString('id-ID')}</p>
           </div>
-          
+
           <div className="mb-10">
             <div className={`max-w-none ${markdownStyles}`}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {advice}
-              </ReactMarkdown>
-            </div>
-          </div>
-          
-          <div className="pt-6 border-t-2 border-slate-200" style={{ pageBreakBefore: 'always' }}>
-            <h2 className="text-2xl font-bold text-slate-800 mb-6">Lampiran: Data yang Dievaluasi</h2>
-            
-            <div className="mb-8 bg-slate-50 p-6 rounded-xl border border-slate-200">
-              <h3 className="text-lg font-bold text-slate-700 mb-4 border-b border-slate-300 pb-2">Status Saldo Dompet</h3>
-              <div className="space-y-3">
-                {evaluatedWallets.map(w => (
-                  <div key={w.id} className="flex justify-between text-base">
-                    <span className="text-slate-700">{w.name}</span>
-                    <span className="font-semibold">{formatRupiah(w.balance)}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between text-lg font-bold pt-4 border-t border-slate-300 mt-4">
-                  <span>Total Kekayaan Aktif</span>
-                  <span className="text-teal-700">{formatRupiah(getTotalBalance(evaluatedWallets))}</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-bold text-slate-700 mb-4 border-b border-slate-300 pb-2">Riwayat Transaksi</h3>
-              {evaluatedTransactions.length === 0 ? (
-                <p className="text-slate-500 italic">Tidak ada transaksi yang tercatat.</p>
-              ) : (
-                <table className="w-full text-left text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-300">
-                      <th className="p-3 font-semibold text-slate-700">Tanggal</th>
-                      <th className="p-3 font-semibold text-slate-700">Tipe</th>
-                      <th className="p-3 font-semibold text-slate-700">Kategori</th>
-                      <th className="p-3 font-semibold text-slate-700">Nominal</th>
-                      <th className="p-3 font-semibold text-slate-700">Catatan</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {evaluatedTransactions.slice().reverse().map((tx, idx) => (
-                      <tr key={tx.id} className={`border-b border-slate-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                        <td className="p-3 whitespace-nowrap">{new Date(tx.date).toLocaleDateString('id-ID')}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${tx.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
-                          </span>
-                        </td>
-                        <td className="p-3 font-medium text-slate-800">{tx.category}</td>
-                        <td className={`p-3 font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-slate-800'}`}>
-                          {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
-                        </td>
-                        <td className="p-3 text-slate-600 italic text-xs max-w-[200px] truncate">{tx.note || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{advice}</ReactMarkdown>
             </div>
           </div>
         </div>

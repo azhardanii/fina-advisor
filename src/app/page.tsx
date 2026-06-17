@@ -594,6 +594,9 @@ export default function Home() {
               onShowReceipt={setReceiptTransactions}
               onSaveCategory={handleSaveCategory}
               onDataMutated={fetchData}
+              onOpenAdvisor={() => {
+                setActiveTab('ai-advisor');
+              }}
             />
           )}
 
@@ -712,6 +715,10 @@ export default function Home() {
                 onDataMutated={fetchData}
                 onClose={() => setIsChatOpen(false)}
                 isDrawer={true}
+                onOpenAdvisor={() => {
+                  setIsChatOpen(false);
+                  setActiveTab('ai-advisor');
+                }}
               />
             </div>
           )}

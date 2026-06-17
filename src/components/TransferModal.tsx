@@ -12,9 +12,13 @@ export default function TransferModal({ wallets, onTransfer, onClose }: Transfer
   const [sourceWalletId, setSourceWalletId] = useState(wallets[0]?.id || '');
   const [destWalletId, setDestWalletId] = useState(wallets.length > 1 ? wallets[1].id : '');
   const [amount, setAmount] = useState<number | ''>('');
-  const [dateStr, setDateStr] = useState(new Date().toISOString().slice(0, 16));
+  const [dateStr, setDateStr] = useState('');
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    setDateStr(new Date().toISOString().slice(0, 16));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

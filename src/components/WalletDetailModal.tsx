@@ -68,7 +68,7 @@ export default function WalletDetailModal({ wallet, transactions, formatRupiah, 
                     <div>
                       <p className="font-semibold text-slate-800">{tx.category}</p>
                       <div className="flex items-center text-xs text-slate-500 space-x-2">
-                        <span>{new Date(tx.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <span>{tx.date ? new Date(tx.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span>
                       </div>
                       {tx.note && <p className="text-xs text-slate-500 mt-1">{tx.note}</p>}
                     </div>

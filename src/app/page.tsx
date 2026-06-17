@@ -48,6 +48,7 @@ export default function Home() {
   const [processMessage, setProcessMessage] = useState('');
   const [sidenavOpen, setSidenavOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   // --- Data Fetching ---
   const fetchData = useCallback(async () => {
@@ -492,9 +493,31 @@ export default function Home() {
       </aside>
 
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/90 backdrop-blur-xl border-t border-slate-200/80 px-2 pb-[env(safe-area-inset-bottom)]">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-xl border-t border-slate-200/80 px-2 pb-[env(safe-area-inset-bottom)]">
+        {showMobileMenu && (
+          <>
+            <div className="fixed inset-0 -z-10" onClick={() => setShowMobileMenu(false)}></div>
+            <div className="absolute bottom-[76px] right-4 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 flex flex-col gap-1 w-44 animate-in slide-in-from-bottom-2 fade-in">
+              {NAV_ITEMS.filter(item => !['dashboard', 'wallets', 'ai-input', 'ai-advisor'].includes(item.id)).map(item => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => { setActiveTab(item.id); setShowMobileMenu(false); }}
+                    className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all text-sm font-medium ${isActive ? 'bg-teal-50 text-teal-700' : 'text-slate-600 hover:bg-slate-50 hover:text-teal-700'}`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+
         <div className="flex items-center justify-around h-16">
-          {NAV_ITEMS.map(item => {
+          {NAV_ITEMS.filter(item => ['dashboard', 'wallets', 'ai-input', 'ai-advisor'].includes(item.id)).map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             
@@ -533,6 +556,18 @@ export default function Home() {
               </button>
             );
           })}
+
+          <button
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all duration-200 min-w-[56px] ${['categories', 'profile'].includes(activeTab) ? 'text-teal-600' : 'text-slate-400'}`}
+          >
+            <div className={`p-1.5 rounded-xl transition-all ${['categories', 'profile'].includes(activeTab) || showMobileMenu ? 'bg-teal-50' : ''}`}>
+              <Menu className={`w-5 h-5 ${['categories', 'profile'].includes(activeTab) || showMobileMenu ? 'text-teal-600' : ''}`} />
+            </div>
+            <span className={`text-[10px] font-medium ${['categories', 'profile'].includes(activeTab) || showMobileMenu ? 'text-teal-700' : 'text-slate-400'}`}>
+              Lainnya
+            </span>
+          </button>
         </div>
       </nav>
 

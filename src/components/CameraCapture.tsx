@@ -48,14 +48,21 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      const MAX_WIDTH = 1200;
+      let width = video.videoWidth;
+      let height = video.videoHeight;
+      if (width > MAX_WIDTH) {
+        height = Math.round((height * MAX_WIDTH) / width);
+        width = MAX_WIDTH;
+      }
+      canvas.width = width;
+      canvas.height = height;
       
       const context = canvas.getContext('2d');
       if (context) {
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        // Format as JPEG to save size
-        const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+        context.drawImage(video, 0, 0, width, height);
+        // Format as WebP to save size
+        const base64Image = canvas.toDataURL('image/webp', 0.8);
         
         // Stop stream before closing
         if (stream) {
@@ -72,7 +79,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
   };
 
   return (
-    <div className="absolute inset-0 z-50 bg-black flex flex-col">
+    <div className="fixed inset-0 z-[100] bg-black flex flex-col">
       {/* Header Controls */}
       <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/50 to-transparent">
         <button 

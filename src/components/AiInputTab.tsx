@@ -197,7 +197,25 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
       setInputImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200;
+          let width = img.width;
+          let height = img.height;
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            setImagePreview(canvas.toDataURL('image/webp', 0.8));
+          }
+        };
+        img.src = reader.result as string;
       };
       reader.readAsDataURL(file);
     }
@@ -723,8 +741,8 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
                 handleSendMessage();
               }
             }}
-            placeholder={isListening ? "Mendengarkan suara Anda..." : "Ketik transaksi atau tanya sesuatu..."}
-            className="flex-1 bg-transparent border-none focus:ring-0 resize-none max-h-32 py-3 px-1 text-[15px] outline-none"
+            placeholder={isListening ? "Mendengar..." : "Ketik transaksi / tanya..."}
+            className="flex-1 min-w-0 bg-transparent border-none focus:ring-0 resize-none max-h-32 py-3 px-1 text-[15px] outline-none"
             rows={Math.min(4, inputText.split('\n').length)}
           />
 

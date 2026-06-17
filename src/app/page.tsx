@@ -444,7 +444,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-teal-50/30 font-sans">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-teal-50/30 font-sans">
       {/* Mobile Top Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">

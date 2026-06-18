@@ -513,8 +513,16 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
         onSaveCategory(savedCat);
       }
 
-      const txData = pendingCategoryProposal.payload.transaction;
-      txData.category = catData.name;
+      const txDataRaw = pendingCategoryProposal.payload.transaction;
+      const w = wallets.find(w => w.name.toLowerCase() === (txDataRaw.walletName || '').toLowerCase()) || wallets[0];
+      const txData = {
+        type: txDataRaw.type,
+        amount: txDataRaw.amount,
+        category: catData.name,
+        note: txDataRaw.note,
+        date: txDataRaw.date || new Date().toISOString(),
+        walletId: w?.id
+      };
       
       const success = await onExecuteTransactions([txData]);
       if (success) {
@@ -538,8 +546,16 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
       const selectedCat = categories.find(c => c.id === forceCategorySelectedId);
       if (!selectedCat) return;
 
-      const txData = pendingCategoryProposal.payload.transaction;
-      txData.category = selectedCat.name;
+      const txDataRaw = pendingCategoryProposal.payload.transaction;
+      const w = wallets.find(w => w.name.toLowerCase() === (txDataRaw.walletName || '').toLowerCase()) || wallets[0];
+      const txData = {
+        type: txDataRaw.type,
+        amount: txDataRaw.amount,
+        category: selectedCat.name,
+        note: txDataRaw.note,
+        date: txDataRaw.date || new Date().toISOString(),
+        walletId: w?.id
+      };
       
       const success = await onExecuteTransactions([txData]);
       if (success) {
@@ -924,7 +940,7 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
 
           <button
             onClick={handleSendMessage}
-            disabled={(!inputText.trim() && !imagePreview) || isLoading}
+            disabled={(!inputText.trim() && imagePreviews.length === 0) || isLoading}
             className="p-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:hover:bg-teal-600 transition-colors shrink-0 shadow-sm"
           >
             <Send className="w-5 h-5" />

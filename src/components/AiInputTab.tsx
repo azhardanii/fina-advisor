@@ -42,6 +42,10 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
   const [isListening, setIsListening] = useState(false);
 
   const [pendingDynamicAction, setPendingDynamicAction] = useState<any | null>(null);
+  const [pendingCategoryProposal, setPendingCategoryProposal] = useState<any | null>(null);
+  const [showForceCategorySelect, setShowForceCategorySelect] = useState(false);
+  const [forceCategorySelectedId, setForceCategorySelectedId] = useState<string>('');
+
   const [showClarificationModal, setShowClarificationModal] = useState(false);
   const [clarificationItems, setClarificationItems] = useState<ClarificationItem[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -353,12 +357,15 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
 
       const clarifyAction = data.actions?.find((a: any) => a.type === 'CLARIFY_TRANSACTIONS');
       const dynamicAction = data.actions?.find((a: any) => a.type === 'DYNAMIC_ACTION');
+      const proposeCategoryAction = data.actions?.find((a: any) => a.type === 'PROPOSE_CATEGORY_AND_RECORD');
 
       if (clarifyAction) {
         setClarificationItems(clarifyAction.payload.items || []);
         setShowClarificationModal(true);
       } else if (dynamicAction) {
         setPendingDynamicAction(dynamicAction);
+      } else if (proposeCategoryAction) {
+        setPendingCategoryProposal(proposeCategoryAction);
       } else {
         const reply: Message = {
           id: (Date.now() + 1).toString(),
@@ -429,12 +436,15 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
 
       const clarifyAction = data.actions?.find((a: any) => a.type === 'CLARIFY_TRANSACTIONS');
       const dynamicAction = data.actions?.find((a: any) => a.type === 'DYNAMIC_ACTION');
+      const proposeCategoryAction = data.actions?.find((a: any) => a.type === 'PROPOSE_CATEGORY_AND_RECORD');
 
       if (clarifyAction) {
         setClarificationItems(clarifyAction.payload.items || []);
         setShowClarificationModal(true);
       } else if (dynamicAction) {
         setPendingDynamicAction(dynamicAction);
+      } else if (proposeCategoryAction) {
+        setPendingCategoryProposal(proposeCategoryAction);
       } else {
         const reply: Message = {
           id: (Date.now() + 1).toString(),
@@ -483,6 +493,67 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
     } catch (error: any) {
       setPendingDynamicAction(null);
       await sendSilentContextToAI(`Gagal karena error jaringan: ${error.message}`);
+    }
+  };
+
+  const handleAcceptCategoryProposal = async () => {
+    if (!pendingCategoryProposal) return;
+    setIsLoading(true);
+    try {
+      const catData = pendingCategoryProposal.payload.category;
+      
+      const resCat = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(catData)
+      });
+      const savedCat = await resCat.json();
+
+      if (onSaveCategory) {
+        onSaveCategory(savedCat);
+      }
+
+      const txData = pendingCategoryProposal.payload.transaction;
+      txData.category = catData.name;
+      
+      const success = await onExecuteTransactions([txData]);
+      if (success) {
+        await sendSilentContextToAI(`Sip, kategori ${catData.name} berhasil dibuat dan transaksinya sudah kusimpan!`);
+      } else {
+        await sendSilentContextToAI('Gagal menyimpan transaksi.');
+      }
+    } catch (e) {
+      console.error(e);
+      await sendSilentContextToAI('Terjadi kesalahan sistem saat membuat kategori.');
+    } finally {
+      setIsLoading(false);
+      setPendingCategoryProposal(null);
+    }
+  };
+
+  const handleForceCategorySubmit = async () => {
+    if (!pendingCategoryProposal || !forceCategorySelectedId) return;
+    setIsLoading(true);
+    try {
+      const selectedCat = categories.find(c => c.id === forceCategorySelectedId);
+      if (!selectedCat) return;
+
+      const txData = pendingCategoryProposal.payload.transaction;
+      txData.category = selectedCat.name;
+      
+      const success = await onExecuteTransactions([txData]);
+      if (success) {
+        await sendSilentContextToAI(`Sip, transaksinya udah kusimpan dengan kategori ${selectedCat.name}.`);
+      } else {
+        await sendSilentContextToAI('Gagal menyimpan transaksi.');
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+      setShowForceCategorySelect(false);
+      setPendingCategoryProposal(null);
+      setForceCategorySelectedId('');
     }
   };
 
@@ -610,6 +681,76 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
           onConfirm={handleConfirmDynamicAction}
           onCancel={handleCancelDynamicAction}
         />
+      )}
+      {pendingCategoryProposal && !showForceCategorySelect && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Kategori Baru?</h3>
+            <p className="text-slate-600 mb-6 text-sm">
+              Kategori <span className="font-bold text-teal-600">{pendingCategoryProposal.payload.category.name}</span> belum ada nih di daftar kamu. Boleh FINA buatkan kategori baru ini?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowForceCategorySelect(true);
+                }}
+                className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
+              >
+                Ngga Mau
+              </button>
+              <button
+                onClick={handleAcceptCategoryProposal}
+                className="flex-1 px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg shadow-teal-500/30 transition-all active:scale-95"
+              >
+                Boleh Aja
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showForceCategorySelect && pendingCategoryProposal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Pilih Kategori</h3>
+            <p className="text-slate-600 mb-4 text-sm">
+              Oke, kalau gitu tolong pilih satu kategori yang cocok untuk transaksi ini ya:
+            </p>
+            <div className="mb-6 max-h-60 overflow-y-auto space-y-2 pr-2">
+              {categories.filter(c => c.type === pendingCategoryProposal.payload.transaction.type).map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setForceCategorySelectedId(cat.id)}
+                  className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${forceCategorySelectedId === cat.id ? 'border-teal-500 bg-teal-50 ring-1 ring-teal-500' : 'border-slate-200 hover:border-teal-300'}`}
+                >
+                  <div className="font-medium text-slate-800 flex items-center">
+                    <span className={`w-3 h-3 rounded-full ${cat.color} mr-3 shrink-0`}></span>
+                    <span className="truncate">{cat.name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowForceCategorySelect(false);
+                  setPendingCategoryProposal(null);
+                  setForceCategorySelectedId('');
+                  sendSilentContextToAI('Transaksi dibatalkan karena aku ga mau milih kategori.');
+                }}
+                className="px-4 py-3 text-slate-500 hover:bg-slate-100 font-medium rounded-xl transition-colors shrink-0"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleForceCategorySubmit}
+                disabled={!forceCategorySelectedId}
+                className="flex-1 px-4 py-3 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg transition-all"
+              >
+                Simpan
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {showClarificationModal && (
         <ClarificationModal

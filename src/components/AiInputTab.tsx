@@ -603,7 +603,7 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
   };
 
   return (
-    <div className={`bg-white ${isDrawer ? 'rounded-none md:rounded-l-3xl' : 'rounded-none md:rounded-3xl'} overflow-hidden shadow-2xl shadow-teal-900/5 border-0 md:border md:border-slate-100 flex flex-col ${isDrawer ? 'h-full' : 'h-full lg:h-[calc(100vh-120px)]'} relative`}>
+    <div className={`bg-white ${isDrawer ? 'rounded-none md:rounded-l-3xl' : 'rounded-none md:rounded-3xl'} overflow-hidden md:shadow-2xl md:shadow-teal-900/5 border-0 md:border md:border-slate-100 flex flex-col ${isDrawer ? 'h-full' : 'h-full lg:h-[calc(100vh-120px)]'} relative`}>
       {pendingDynamicAction && (
         <ActionConfirmationModal
           description={pendingDynamicAction.payload.description}

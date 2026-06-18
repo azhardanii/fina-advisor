@@ -289,12 +289,12 @@ export default function DashboardTab({ wallets, transactions, categories, format
                 </span>
               )}
             </h3>
-            {displayedTransactions.length > 20 && (
+            {transactions.length > 0 && (
               <button 
-                onClick={() => setShowAllTransactions(!showAllTransactions)}
+                onClick={() => onNavigate('transactions')}
                 className="text-sm text-teal-600 hover:text-teal-700 font-medium"
               >
-                {showAllTransactions ? 'Tampilkan Sedikit' : `Lihat Semua (${displayedTransactions.length})`}
+                Lihat Semua
               </button>
             )}
           </div>
@@ -302,7 +302,7 @@ export default function DashboardTab({ wallets, transactions, categories, format
             <div className="text-center py-8 text-slate-400">Belum ada transaksi dicatat. Gunakan fitur Input AI!</div>
           ) : (
             <div className="space-y-2">
-              {(showAllTransactions ? displayedTransactions : displayedTransactions.slice(0, 20)).map(tx => {
+              {displayedTransactions.slice(0, 10).map(tx => {
                 const wallet = wallets.find(w => w.id === tx.walletId);
                 const category = categories.find(c => c.name === tx.category);
                 const iconTheme = category ? getIconTheme(category.color) : (tx.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600');

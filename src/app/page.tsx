@@ -449,15 +449,17 @@ export default function Home() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-teal-50/30 font-sans">
       {/* Mobile Top Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Activity className="w-5 h-5 text-teal-600" />
-          <span className="font-bold text-lg text-slate-800 tracking-tight">FINA</span>
-        </div>
-        <span className="text-sm font-medium text-slate-500 capitalize">
-          {NAV_ITEMS.find(n => n.id === activeTab)?.label}
-        </span>
-      </header>
+      {activeTab !== 'ai-input' && (
+        <header className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-teal-600" />
+            <span className="font-bold text-lg text-slate-800 tracking-tight">FINA</span>
+          </div>
+          <span className="text-sm font-medium text-slate-500 capitalize">
+            {NAV_ITEMS.find(n => n.id === activeTab)?.label}
+          </span>
+        </header>
+      )}
 
       {/* Desktop Sidenav */}
       <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-slate-200/80 flex-col z-40">
@@ -574,8 +576,8 @@ export default function Home() {
       </nav>
 
       {/* Main Content */}
-      <main className="pt-16 pb-24 lg:pt-0 lg:pb-0 lg:ml-64 min-h-screen">
-        <div className={activeTab === 'ai-input' ? "h-[calc(100vh-160px)] lg:h-auto max-w-5xl mx-auto px-0 md:px-4 sm:px-6 lg:px-8 py-0 lg:py-8" : "max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8"}>
+      <main className={`min-h-screen lg:ml-64 ${activeTab === 'ai-input' ? 'pt-0 pb-[calc(64px+env(safe-area-inset-bottom))]' : 'pt-16 pb-24 lg:pt-0 lg:pb-0'}`}>
+        <div className={activeTab === 'ai-input' ? "h-[calc(100dvh-64px-env(safe-area-inset-bottom))] lg:h-auto max-w-5xl mx-auto px-0 md:px-4 sm:px-6 lg:px-8 py-0 lg:py-8" : "max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8"}>
           {activeTab === 'dashboard' && (
             <DashboardTab 
               wallets={wallets} 
@@ -725,11 +727,11 @@ export default function Home() {
         </div>
       )}
 
-      {/* Floating Action Button (FAB) for global FINA access */}
+      {/* Floating Action Button (FAB) for global FINA access - Hidden on mobile */}
       {activeTab !== 'ai-input' && !isChatOpen && (
         <button
           onClick={() => setIsChatOpen(true)}
-          className="fixed bottom-24 lg:bottom-8 right-6 lg:right-8 z-40 w-14 h-14 bg-gradient-to-tr from-teal-500 to-cyan-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-teal-500/30 hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 group"
+          className="hidden lg:flex fixed bottom-8 right-8 z-40 w-14 h-14 bg-gradient-to-tr from-teal-500 to-cyan-500 text-white rounded-full items-center justify-center shadow-lg shadow-teal-500/30 hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 group"
           title="Tanya FINA"
         >
           <div className="absolute -inset-0.5 bg-gradient-to-tr from-teal-500 to-cyan-500 rounded-full blur opacity-30 group-hover:opacity-50 transition duration-300 animate-pulse"></div>

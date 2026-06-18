@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { LayoutDashboard, Wallet as WalletIcon, Tags, Sparkles, MessageSquarePlus, Menu, X, Activity, User, ListFilter } from 'lucide-react';
+import { LayoutDashboard, Wallet as WalletIcon, Tags, Sparkles, MessageSquarePlus, Menu, X, Activity, User, ListFilter, ReceiptText } from 'lucide-react';
 import { Wallet, Transaction, AllocationProposal, Allocation, Category, AllocationAlgorithm, CustomAlgorithmGroup } from '@/types';
 import DashboardTab from '@/components/DashboardTab';
 import WalletsTab from '@/components/WalletsTab';
@@ -20,11 +20,11 @@ type TabType = 'dashboard' | 'wallets' | 'categories' | 'ai-input' | 'ai-advisor
 
 const NAV_ITEMS: { id: TabType; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'wallets', label: 'Wallets', icon: WalletIcon },
-  { id: 'ai-input', label: 'Input AI', icon: MessageSquarePlus },
-  { id: 'transactions', label: 'Transaksi', icon: ListFilter },
-  { id: 'categories', label: 'Kategori', icon: Tags },
+  { id: 'wallets', label: 'Dompet', icon: WalletIcon },
+  { id: 'ai-input', label: 'Chat FINA', icon: MessageSquarePlus },
+  { id: 'transactions', label: 'Transaksi', icon: ReceiptText },
   { id: 'ai-advisor', label: 'Advisor', icon: Sparkles },
+  { id: 'categories', label: 'Kategori', icon: Tags },
   { id: 'profile', label: 'Profil', icon: User },
 ];
 
@@ -495,12 +495,12 @@ export default function Home() {
       </aside>
 
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-xl border-t border-slate-200/80 px-2 pb-[env(safe-area-inset-bottom)]">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-slate-200/80 px-2 pb-[env(safe-area-inset-bottom)]">
         {showMobileMenu && (
           <>
             <div className="fixed inset-0 -z-10" onClick={() => setShowMobileMenu(false)}></div>
             <div className="absolute bottom-[76px] right-4 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 flex flex-col gap-1 w-44 animate-in slide-in-from-bottom-2 fade-in">
-              {NAV_ITEMS.filter(item => !['dashboard', 'wallets', 'ai-input', 'ai-advisor', 'transactions'].includes(item.id)).map(item => {
+              {NAV_ITEMS.filter(item => !['dashboard', 'wallets', 'ai-input', 'transactions'].includes(item.id)).map(item => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
                 return (
@@ -519,7 +519,7 @@ export default function Home() {
         )}
 
         <div className="flex items-center justify-around h-16">
-          {NAV_ITEMS.filter(item => ['dashboard', 'wallets', 'ai-input', 'transactions', 'ai-advisor'].includes(item.id)).map(item => {
+          {NAV_ITEMS.filter(item => ['dashboard', 'wallets', 'ai-input', 'transactions'].includes(item.id)).map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             

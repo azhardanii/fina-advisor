@@ -373,11 +373,6 @@ function WalletCard({ wallet, onClick, onEdit, onDelete, onTogglePin, formatRupi
       onClick={onClick}
       className={`bg-white hover:shadow-md transition-shadow rounded-2xl shadow-sm border border-slate-200 p-5 relative overflow-hidden group flex flex-col ${onDragStart ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
     >
-      {wallet.isPinned && (
-        <div className="absolute top-0 right-0 m-2 text-amber-400">
-          <Pin className="w-4 h-4" fill="currentColor" />
-        </div>
-      )}
       <div className={`absolute top-0 left-0 w-1.5 h-full ${wallet.color}`}></div>
       <div className="flex justify-between items-start mb-4 gap-2">
         <div className="flex items-center flex-1 min-w-0">

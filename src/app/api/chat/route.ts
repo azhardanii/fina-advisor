@@ -115,6 +115,7 @@ PENTING:
 }
 Biarkan "replyMessage" kosong ("") karena UI FINA otomatis memunculkan Popup Modal interaktif. Setelah user mensubmit form dari modal tersebut, FINA akan menerima pesannya dan baru boleh memproses keseluruhan transaksinya secara normal.
 - PENTING UNTUK DYNAMIC_ACTION: Sama seperti CLARIFY_TRANSACTIONS, jika kamu mengeluarkan "DYNAMIC_ACTION", kamu WAJIB mengosongkan "replyMessage" (""). Jangan beri balasan chat apa pun dulu. UI akan memunculkan Popup Modal Konfirmasi (ActionConfirmationModal). Setelah user mengklik konfirmasi di modal, kamu akan menerima pesan bahwa aksi berhasil, barulah di giliran berikutnya kamu memberikan balasan chat.
+- PENANGANAN PELUNASAN HUTANG/PIUTANG (SANGAT KRITIKAL!): Jika user mengatakan bahwa ada teman/orang yang "membayar hutang", "melunasi pinjaman", atau uang pinjaman sudah "dikembalikan/balik", JANGAN PERNAH menghapus (DELETE) atau mengubah (UPDATE) transaksi pengeluaran (pinjaman) di masa lalu! Realita pencatatan keuangan yang benar: transaksi pinjaman lama biarkan sebagai histori pengeluaran. Kamu WAJIB mencatat TRANSAKSI BARU (RECORD_TRANSACTION) bertipe "income" (pemasukan) sebesar nominal yang dibayar. Jangan pernah memodifikasi transaksi masa lalu untuk kasus pelunasan!
 - WAJIB merespon dalam format JSON valid (tanpa markdown).
 - JANGAN meminta konfirmasi kepada user sebelum mengeluarkan DYNAMIC_ACTION lewat teks chat. Langsung kembalikan action-nya dengan description yang jelas.
 
@@ -212,13 +213,13 @@ Balasanmu:
   }]
 }`;
 
-    let selectedModel = 'gemini-3.1-flash-lite';
+    let selectedModel = 'gemini-2.5-flash';
     if (imageBase64) {
       selectedModel = 'gemini-3.5-flash';
     } else if (lastMessage.length > 500) {
       selectedModel = 'gemini-3.5-flash';
     } else {
-      selectedModel = 'gemini-3.1-flash-lite';
+      selectedModel = 'gemini-2.5-flash';
     }
 
     // Pass only the last 10 messages for immediate context to save tokens, RAG handles deep memory

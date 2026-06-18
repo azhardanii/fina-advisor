@@ -581,8 +581,8 @@ export default function Home() {
       </nav>
 
       {/* Main Content */}
-      <main className={`min-h-screen lg:ml-64 ${activeTab === 'ai-input' ? 'pt-0 pb-[calc(64px+env(safe-area-inset-bottom))]' : 'pt-16 pb-24 lg:pt-0 lg:pb-0'}`}>
-        <div className={activeTab === 'ai-input' ? "h-[calc(100dvh-64px-env(safe-area-inset-bottom))] lg:h-auto max-w-5xl mx-auto px-0 md:px-4 sm:px-6 lg:px-8 py-0 lg:py-8" : "max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8"}>
+      <main className={`lg:ml-64 ${activeTab === 'ai-input' ? 'fixed top-0 left-0 right-0 bottom-[calc(64px+env(safe-area-inset-bottom))] lg:static lg:bottom-auto z-20' : 'min-h-screen pt-16 pb-24 lg:pt-0 lg:pb-0'}`}>
+        <div className={activeTab === 'ai-input' ? "h-full lg:h-auto max-w-5xl mx-auto px-0 md:px-4 sm:px-6 lg:px-8 py-0 lg:py-8 bg-white" : "max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8"}>
           {activeTab === 'dashboard' && (
             <DashboardTab 
               wallets={wallets} 

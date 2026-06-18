@@ -174,22 +174,22 @@ Return ONLY a JSON response in this exact format:
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-800">Manajemen Wallet</h2>
-        <div className="flex space-x-3">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Manajemen Dompet</h2>
+        <div className="flex w-full sm:w-auto gap-2">
           {wallets.length >= 2 && (
             <button 
               onClick={onOpenTransferModal}
-              className="bg-slate-100 hover:bg-slate-200 text-teal-700 border border-teal-100 px-4 py-2 rounded-lg font-medium flex items-center transition-colors shadow-sm"
+              className="flex-1 sm:flex-none justify-center bg-slate-100 hover:bg-slate-200 text-teal-700 border border-teal-100 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors shadow-sm"
             >
-              Transfer Dana
+              Transfer
             </button>
           )}
           <button 
             onClick={() => onOpenEditWallet(null)}
-            className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium flex items-center transition-colors shadow-sm"
+            className="flex-1 sm:flex-none justify-center bg-teal-600 hover:bg-teal-700 text-white px-3 sm:px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors shadow-sm"
           >
-            <Plus className="w-4 h-4 mr-2"/> Buat Wallet
+            <Plus className="w-4 h-4 mr-1 sm:mr-2"/> Buat Dompet
           </button>
         </div>
       </div>
@@ -218,52 +218,54 @@ Return ONLY a JSON response in this exact format:
           <h3 className="font-bold text-slate-800 mb-4">Pengaturan Custom Grouping</h3>
           <div className="space-y-3 mb-4">
             {customRows.map((row, idx) => (
-              <div key={row.id} className="flex space-x-3 items-center">
-                <div className="flex-1">
+              <div key={row.id} className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
+                <div className="flex-1 min-w-0">
                   <input 
                     type="text" 
                     placeholder="Nama Grup (Misal: Dana Liburan)" 
                     value={row.name}
                     onChange={(e) => handleUpdateCustomRow(idx, 'name', e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                    className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                   />
                 </div>
-                <div className="w-24 relative">
-                  <input 
-                    type="number" 
-                    placeholder="0" 
-                    value={row.percentage || ''}
-                    onChange={(e) => handleUpdateCustomRow(idx, 'percentage', Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none pr-8"
-                  />
-                  <span className="absolute right-3 top-2.5 text-sm text-slate-500">%</span>
+                <div className="flex items-center gap-2 sm:w-auto">
+                  <div className="flex-1 sm:w-24 relative">
+                    <input 
+                      type="number" 
+                      placeholder="0" 
+                      value={row.percentage || ''}
+                      onChange={(e) => handleUpdateCustomRow(idx, 'percentage', Number(e.target.value))}
+                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none pr-8"
+                    />
+                    <span className="absolute right-3 top-2.5 sm:top-2 text-sm text-slate-500">%</span>
+                  </div>
+                  <button 
+                    onClick={() => handleRemoveCustomRow(idx)}
+                    className="p-2.5 sm:p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-slate-200 sm:border-transparent shrink-0"
+                    disabled={customRows.length <= 1}
+                  >
+                    <Trash2 className="w-4 h-4"/>
+                  </button>
                 </div>
-                <button 
-                  onClick={() => handleRemoveCustomRow(idx)}
-                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  disabled={customRows.length <= 1}
-                >
-                  <Trash2 className="w-4 h-4"/>
-                </button>
               </div>
             ))}
           </div>
           
-          <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 pt-4 sm:pt-3 border-t border-slate-200">
             <button 
               onClick={handleAddCustomRow}
-              className="text-teal-600 hover:text-teal-700 font-medium text-sm flex items-center bg-teal-50 px-3 py-1.5 rounded-lg transition-colors"
+              className="text-teal-600 hover:text-teal-700 font-medium text-sm flex items-center justify-center sm:justify-start bg-teal-50 px-3 py-2 sm:py-1.5 rounded-lg transition-colors"
             >
               <Plus className="w-4 h-4 mr-1"/> Tambah Grup
             </button>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
               <span className={`text-sm font-bold ${totalCustomPercentage === 100 ? 'text-teal-600' : 'text-red-500'}`}>
                 Total: {totalCustomPercentage}%
               </span>
               <button 
                 onClick={handleSaveCustomAlgo}
                 disabled={totalCustomPercentage !== 100}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm ${totalCustomPercentage === 100 ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm whitespace-nowrap ${totalCustomPercentage === 100 ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}
               >
                 Simpan & Auto-Group
               </button>
@@ -377,29 +379,32 @@ function WalletCard({ wallet, onClick, onEdit, onDelete, onTogglePin, formatRupi
         </div>
       )}
       <div className={`absolute top-0 left-0 w-1.5 h-full ${wallet.color}`}></div>
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center mr-3 ${getIconTheme(wallet.color)}`}>
+      <div className="flex justify-between items-start mb-4 gap-2">
+        <div className="flex items-center flex-1 min-w-0">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center mr-3 shrink-0 ${getIconTheme(wallet.color)}`}>
             <WalletIcon className="w-4 h-4"/>
           </div>
-          <h3 className="font-bold text-lg text-slate-800">{wallet.name}</h3>
+          <h3 className="font-bold text-lg text-slate-800 truncate" title={wallet.name}>{wallet.name}</h3>
         </div>
-        <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex space-x-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           <button 
             onClick={(e) => { e.stopPropagation(); onTogglePin(); }} 
             className={`p-1.5 rounded-md ${wallet.isPinned ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`}
+            title="Pin Dompet"
           >
             <Pin className="w-4 h-4" fill={wallet.isPinned ? "currentColor" : "none"} />
           </button>
           <button 
             onClick={(e) => { e.stopPropagation(); onEdit(); }} 
             className="p-1.5 text-slate-400 hover:text-teal-600 rounded-md hover:bg-teal-50"
+            title="Edit Dompet"
           >
             <Edit2 className="w-4 h-4"/>
           </button>
           <button 
             onClick={(e) => { e.stopPropagation(); onDelete(); }} 
             className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50"
+            title="Hapus Dompet"
           >
             <Trash2 className="w-4 h-4"/>
           </button>

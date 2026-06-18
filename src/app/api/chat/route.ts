@@ -7,7 +7,7 @@ const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { messages, wallets, categories, userProfile, recentTransactions, imageBase64, imageMimeType } = body;
+    const { messages, wallets, categories, userProfile, recentTransactions, images } = body;
 
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json({ error: 'API Key Gemini tidak dikonfigurasi' }, { status: 500 });
@@ -226,9 +226,9 @@ Balasanmu:
 }`;
 
     let selectedModel = 'gemini-2.5-flash';
-    if (imageBase64) {
+    if (images && images.length > 0) {
       selectedModel = 'gemini-3.5-flash';
-    } else if (lastMessage.length > 500) {
+    } else if (lastMessage && lastMessage.length > 500) {
       selectedModel = 'gemini-3.5-flash';
     } else {
       selectedModel = 'gemini-2.5-flash';
@@ -241,13 +241,15 @@ Balasanmu:
       parts: [{ text: msg.content }]
     }));
 
-    const lastUserParts: any[] = [{ text: lastMessage }];
-    if (imageBase64) {
-      lastUserParts.push({
-        inlineData: {
-          mimeType: imageMimeType,
-          data: imageBase64
-        }
+    const lastUserParts: any[] = [{ text: lastMessage || 'Tolong proses gambar-gambar ini.' }];
+    if (images && images.length > 0) {
+      images.forEach((img: any) => {
+        lastUserParts.push({
+          inlineData: {
+            mimeType: img.mimeType,
+            data: img.base64Data
+          }
+        });
       });
     }
 

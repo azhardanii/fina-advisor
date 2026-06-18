@@ -10,7 +10,7 @@ type Message = {
   id: string;
   role: 'user' | 'model';
   content: string;
-  imagePreview?: string;
+  imagePreviews?: string[];
   actions?: any[];
   isError?: boolean;
 };
@@ -36,8 +36,7 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
     { id: '1', role: 'model', content: 'Halo! Aku FINA, asisten keuangan pribadimu. Ada yang bisa dibantu hari ini?' }
   ]);
   const [inputText, setInputText] = useState('');
-  const [inputImage, setInputImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
 
@@ -197,33 +196,37 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
   }, [messages]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setInputImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 1200;
-          let width = img.width;
-          let height = img.height;
-          if (width > MAX_WIDTH) {
-            height = Math.round((height * MAX_WIDTH) / width);
-            width = MAX_WIDTH;
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            setImagePreview(canvas.toDataURL('image/webp', 0.8));
-          }
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files);
+      
+      newFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 1200;
+            let width = img.width;
+            let height = img.height;
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              setImagePreviews(prev => [...prev, canvas.toDataURL('image/webp', 0.8)]);
+            }
+          };
+          img.src = reader.result as string;
         };
-        img.src = reader.result as string;
-      };
-      reader.readAsDataURL(file);
+        reader.readAsDataURL(file);
+      });
     }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const sendSilentContextToAI = async (contextMessage: string) => {
@@ -305,32 +308,31 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
   };
 
   const handleSendMessage = async () => {
-    if (!inputText.trim() && !imagePreview) return;
+    if (!inputText.trim() && imagePreviews.length === 0) return;
 
     const newMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: inputText,
-      imagePreview: imagePreview || undefined
+      imagePreviews: imagePreviews.length > 0 ? [...imagePreviews] : undefined
     };
 
     setMessages(prev => [...prev, newMessage]);
     setTimeout(scrollToBottom, 50);
 
     setInputText('');
-    setInputImage(null);
-    setImagePreview('');
+    setImagePreviews([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
 
     setIsLoading(true);
 
     try {
-      let base64Data = '';
-      let mimeType = '';
-      if (newMessage.imagePreview) {
-        base64Data = newMessage.imagePreview.split(',')[1];
-        mimeType = newMessage.imagePreview.substring(5, newMessage.imagePreview.indexOf(';'));
-      }
+      const imagesData = newMessage.imagePreviews?.map(preview => {
+        return {
+          base64Data: preview.split(',')[1],
+          mimeType: preview.substring(5, preview.indexOf(';'))
+        };
+      }) || [];
 
       const recentMessagesForApi = messages.slice(-10).concat(newMessage);
       const apiMessages = recentMessagesForApi.map(m => ({
@@ -347,8 +349,7 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
           categories,
           userProfile,
           recentTransactions: transactions.slice(0, 50),
-          imageBase64: base64Data || undefined,
-          imageMimeType: mimeType || undefined
+          images: imagesData.length > 0 ? imagesData : undefined
         })
       });
 
@@ -405,12 +406,12 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
     setIsLoading(true);
 
     try {
-      let base64Data = '';
-      let mimeType = '';
-      if (userMessage.imagePreview) {
-        base64Data = userMessage.imagePreview.split(',')[1];
-        mimeType = userMessage.imagePreview.substring(5, userMessage.imagePreview.indexOf(';'));
-      }
+      const imagesData = userMessage.imagePreviews?.map(preview => {
+        return {
+          base64Data: preview.split(',')[1],
+          mimeType: preview.substring(5, preview.indexOf(';'))
+        };
+      }) || [];
 
       const recentMessagesForApi = messages.slice(Math.max(0, errorIndex - 10), errorIndex).map(m => ({
         role: m.role,
@@ -426,8 +427,7 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
           categories,
           userProfile,
           recentTransactions: transactions.slice(0, 50),
-          imageBase64: base64Data || undefined,
-          imageMimeType: mimeType || undefined
+          images: imagesData.length > 0 ? imagesData : undefined
         })
       });
 
@@ -763,7 +763,7 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
         <CameraCapture 
           onClose={() => setIsCameraOpen(false)} 
           onCapture={(base64) => {
-            setImagePreview(base64);
+            setImagePreviews(prev => [...prev, base64]);
             setIsCameraOpen(false);
           }} 
         />
@@ -802,8 +802,14 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
           {messages.map((msg) => (
             <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
               <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${msg.role === 'user' ? 'bg-teal-600 text-white rounded-br-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm'}`}>
-                {msg.imagePreview && <img src={msg.imagePreview} alt="Upload" className="w-full max-w-sm rounded-lg mb-2 border border-black/10" />}
-                <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{msg.content}</p>
+                {msg.imagePreviews && msg.imagePreviews.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {msg.imagePreviews.map((preview, idx) => (
+                      <img key={idx} src={preview} alt={`Upload ${idx+1}`} className="h-32 object-cover rounded-lg border border-black/10" />
+                    ))}
+                  </div>
+                )}
+                {msg.content && <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{msg.content}</p>}
                 {msg.actions?.find((a: any) => a.type === 'RECOMMEND_ADVISOR') && onOpenAdvisor && (
                   <button 
                     onClick={onOpenAdvisor}
@@ -844,14 +850,23 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
         </div>
       </div>
       <div className="bg-white border-t border-slate-200 p-3 shrink-0 z-10">
-        {imagePreview && (
-          <div className="mb-3 relative inline-block">
-            <img src={imagePreview} alt="Preview" className="h-20 rounded-lg border border-slate-200 object-cover shadow-sm" />
-            <button onClick={() => { setInputImage(null); setImagePreview(''); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow hover:bg-red-600"><XCircle className="w-4 h-4" /></button>
+        {imagePreviews.length > 0 && (
+          <div className="mb-3 flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-hide">
+            {imagePreviews.map((preview, idx) => (
+              <div key={idx} className="relative shrink-0">
+                <img src={preview} alt={`Preview ${idx+1}`} className="h-20 w-20 rounded-lg border border-slate-200 object-cover shadow-sm" />
+                <button 
+                  onClick={() => setImagePreviews(prev => prev.filter((_, i) => i !== idx))} 
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow hover:bg-red-600"
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
           </div>
         )}
         <div className="flex items-end space-x-2 bg-slate-50 border border-slate-200 p-2 rounded-2xl focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-transparent transition-all">
-          <input type="file" accept="image/*,application/pdf" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
+          <input type="file" accept="image/*,application/pdf" multiple className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
           
           <div className="relative shrink-0">
             <button 

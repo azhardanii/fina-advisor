@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Upload, Send, Activity, XCircle, Mic, CheckCircle2, Trash2, X, Camera, Plus, RefreshCcw } from 'lucide-react';
+import { Sparkles, Upload, Send, Activity, XCircle, Mic, CheckCircle2, Trash2, X, Camera, Plus, RefreshCcw, ListFilter } from 'lucide-react';
 import { Wallet, Transaction, AllocationProposal, Category } from '@/types';
 import { UserProfile } from '@/components/ProfileTab';
 import ActionConfirmationModal from './ActionConfirmationModal';
@@ -28,9 +28,10 @@ interface AiInputTabProps {
   onClose?: () => void;
   isDrawer?: boolean;
   onOpenAdvisor?: () => void;
+  onNavigateToTransactions?: () => void;
 }
 
-export default function AiInputTab({ wallets, categories, transactions, userProfile, onExecuteTransactions, onShowAllocationProposal, onShowReceipt, onSaveCategory, onDataMutated, onClose, isDrawer, onOpenAdvisor }: AiInputTabProps) {
+export default function AiInputTab({ wallets, categories, transactions, userProfile, onExecuteTransactions, onShowAllocationProposal, onShowReceipt, onSaveCategory, onDataMutated, onClose, isDrawer, onOpenAdvisor, onNavigateToTransactions }: AiInputTabProps) {
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', role: 'model', content: 'Halo! Aku FINA, asisten keuangan pribadimu. Ada yang bisa dibantu hari ini?' }
   ]);
@@ -626,7 +627,7 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
           }} 
         />
       )}
-      <div className="bg-gradient-to-r from-teal-600 to-teal-500 p-4 sm:p-5 flex items-center justify-between shrink-0 z-10">
+      <div className="bg-gradient-to-r from-teal-600 to-teal-500 p-4 sm:p-5 flex items-center justify-between shrink-0 z-20 sticky top-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center">
             <Sparkles className="w-5 h-5 text-white" />
@@ -668,6 +669,14 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
                     className="mt-3 w-full bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 py-2 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
                   >
                     <Sparkles className="w-4 h-4" /> Buka Evaluasi Mendalam
+                  </button>
+                )}
+                {msg.actions?.some((a: any) => a.type === 'RECORD_TRANSACTION') && onNavigateToTransactions && (
+                  <button 
+                    onClick={onNavigateToTransactions}
+                    className="mt-3 w-full bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 py-2.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors text-sm"
+                  >
+                    <ListFilter className="w-4 h-4 text-teal-600" /> 📋 Lihat Semua Transaksi
                   </button>
                 )}
                 {msg.isError && (

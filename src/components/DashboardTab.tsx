@@ -132,7 +132,7 @@ export default function DashboardTab({ wallets, transactions, categories, format
       <div className="bg-gradient-to-r from-teal-800 to-teal-600 rounded-2xl shadow-xl p-6 sm:p-8 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
         <h2 className="text-teal-100 font-medium text-lg mb-1">Total Kekayaan Aktif</h2>
-        <p className="text-4xl sm:text-5xl font-bold tracking-tight mb-6">
+        <p className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 break-all">
           {formatRupiah(getTotalBalance())}
         </p>
         
@@ -301,42 +301,41 @@ export default function DashboardTab({ wallets, transactions, categories, format
           {displayedTransactions.length === 0 ? (
             <div className="text-center py-8 text-slate-400">Belum ada transaksi dicatat. Gunakan fitur Input AI!</div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {(showAllTransactions ? displayedTransactions : displayedTransactions.slice(0, 20)).map(tx => {
                 const wallet = wallets.find(w => w.id === tx.walletId);
                 const category = categories.find(c => c.name === tx.category);
                 const iconTheme = category ? getIconTheme(category.color) : (tx.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600');
                 return (
-                <div key={tx.id} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-100">
-                  <div className="flex items-center">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 ${iconTheme}`}>
-                      {tx.type === 'income' ? <ArrowDownCircle className="w-5 h-5"/> : <ArrowUpCircle className="w-5 h-5"/>}
+                <div key={tx.id} className="p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-100">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${iconTheme}`}>
+                      {tx.type === 'income' ? <ArrowDownCircle className="w-4 h-4 sm:w-5 sm:h-5"/> : <ArrowUpCircle className="w-4 h-4 sm:w-5 sm:h-5"/>}
                     </div>
-                    <div>
-                      <p className="font-semibold text-slate-800">{tx.note || 'Transaksi'}</p>
-                      <div className="flex items-center text-xs text-slate-500 space-x-2 mt-0.5">
-                        <span className="font-medium text-teal-700">{tx.category}</span>
-                        <span>•</span>
-                        <span>{new Date(tx.date).toLocaleDateString('id-ID')}</span>
-                        <span>•</span>
-                        <span className={`px-2 py-0.5 rounded-full text-white ${wallet?.color || 'bg-gray-400'}`}>{wallet?.name || 'Unknown'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-sm sm:text-base text-slate-800 truncate">{tx.note || 'Transaksi'}</p>
+                        <span className={`text-sm font-bold shrink-0 ${tx.type === 'income' ? 'text-green-600' : 'text-slate-800'}`}>
+                          {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
+                        </span>
                       </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <div className={`font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-slate-800'}`}>
-                      {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
-                    </div>
-                    {isEditable(tx.date) && onEditTransaction && onDeleteTransaction && (
-                      <div className="flex space-x-2 mt-1">
-                        <button onClick={() => onEditTransaction(tx)} className="text-slate-400 hover:text-teal-600 p-1">
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => onDeleteTransaction(tx.id)} className="text-slate-400 hover:text-red-600 p-1">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      <div className="flex items-center flex-wrap gap-1.5 mt-1">
+                        <span className="text-xs font-medium text-teal-700">{tx.category}</span>
+                        <span className="text-xs text-slate-300">•</span>
+                        <span className="text-xs text-slate-500">{new Date(tx.date).toLocaleDateString('id-ID')}</span>
+                        <span className={`inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-medium text-white ${wallet?.color || 'bg-gray-400'}`}>{wallet?.name || '?'}</span>
                       </div>
-                    )}
+                      {isEditable(tx.date) && onEditTransaction && onDeleteTransaction && (
+                        <div className="flex gap-2 mt-1.5">
+                          <button onClick={() => onEditTransaction(tx)} className="text-slate-400 hover:text-teal-600 p-1">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onDeleteTransaction(tx.id)} className="text-slate-400 hover:text-red-600 p-1">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 )

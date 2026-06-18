@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { LayoutDashboard, Wallet as WalletIcon, Tags, Sparkles, MessageSquarePlus, Menu, X, Activity, User } from 'lucide-react';
+import { LayoutDashboard, Wallet as WalletIcon, Tags, Sparkles, MessageSquarePlus, Menu, X, Activity, User, ListFilter } from 'lucide-react';
 import { Wallet, Transaction, AllocationProposal, Allocation, Category, AllocationAlgorithm, CustomAlgorithmGroup } from '@/types';
 import DashboardTab from '@/components/DashboardTab';
 import WalletsTab from '@/components/WalletsTab';
 import CategoriesTab from '@/components/CategoriesTab';
 import AiInputTab from '@/components/AiInputTab';
 import AiAdvisorTab from '@/components/AiAdvisorTab';
+import TransactionsTab from '@/components/TransactionsTab';
 import ProfileTab, { UserProfile } from '@/components/ProfileTab';
 import WalletModal from '@/components/WalletModal';
 import AllocationModal from '@/components/AllocationModal';
@@ -15,12 +16,13 @@ import SuccessReceiptModal from '@/components/SuccessReceiptModal';
 import TransactionEditModal from '@/components/TransactionEditModal';
 import TransferModal from '@/components/TransferModal';
 
-type TabType = 'dashboard' | 'wallets' | 'categories' | 'ai-input' | 'ai-advisor' | 'profile';
+type TabType = 'dashboard' | 'wallets' | 'categories' | 'ai-input' | 'ai-advisor' | 'profile' | 'transactions';
 
 const NAV_ITEMS: { id: TabType; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'wallets', label: 'Wallets', icon: WalletIcon },
   { id: 'ai-input', label: 'Input AI', icon: MessageSquarePlus },
+  { id: 'transactions', label: 'Transaksi', icon: ListFilter },
   { id: 'categories', label: 'Kategori', icon: Tags },
   { id: 'ai-advisor', label: 'Advisor', icon: Sparkles },
   { id: 'profile', label: 'Profil', icon: User },
@@ -498,7 +500,7 @@ export default function Home() {
           <>
             <div className="fixed inset-0 -z-10" onClick={() => setShowMobileMenu(false)}></div>
             <div className="absolute bottom-[76px] right-4 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 flex flex-col gap-1 w-44 animate-in slide-in-from-bottom-2 fade-in">
-              {NAV_ITEMS.filter(item => !['dashboard', 'wallets', 'ai-input', 'ai-advisor'].includes(item.id)).map(item => {
+              {NAV_ITEMS.filter(item => !['dashboard', 'wallets', 'ai-input', 'ai-advisor', 'transactions'].includes(item.id)).map(item => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
                 return (
@@ -517,7 +519,7 @@ export default function Home() {
         )}
 
         <div className="flex items-center justify-around h-16">
-          {NAV_ITEMS.filter(item => ['dashboard', 'wallets', 'ai-input', 'ai-advisor'].includes(item.id)).map(item => {
+          {NAV_ITEMS.filter(item => ['dashboard', 'wallets', 'ai-input', 'transactions', 'ai-advisor'].includes(item.id)).map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             
@@ -572,8 +574,8 @@ export default function Home() {
       </nav>
 
       {/* Main Content */}
-      <main className="pt-14 pb-20 lg:pt-0 lg:pb-0 lg:ml-64 min-h-screen">
-        <div className={activeTab === 'ai-input' ? "h-[calc(100vh-136px)] lg:h-auto max-w-5xl mx-auto px-0 md:px-4 sm:px-6 lg:px-8 py-0 lg:py-8" : "max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8"}>
+      <main className="pt-16 pb-24 lg:pt-0 lg:pb-0 lg:ml-64 min-h-screen">
+        <div className={activeTab === 'ai-input' ? "h-[calc(100vh-160px)] lg:h-auto max-w-5xl mx-auto px-0 md:px-4 sm:px-6 lg:px-8 py-0 lg:py-8" : "max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8"}>
           {activeTab === 'dashboard' && (
             <DashboardTab 
               wallets={wallets} 
@@ -632,6 +634,19 @@ export default function Home() {
               onOpenAdvisor={() => {
                 setActiveTab('ai-advisor');
               }}
+              onNavigateToTransactions={() => setActiveTab('transactions')}
+            />
+          )}
+
+          {activeTab === 'transactions' && (
+            <TransactionsTab
+              wallets={wallets}
+              transactions={transactions}
+              categories={categories}
+              formatRupiah={formatRupiah}
+              onEditTransaction={setEditingTransaction}
+              onDeleteTransaction={handleDeleteTransaction}
+              onOpenChat={() => setIsChatOpen(true)}
             />
           )}
 
@@ -753,6 +768,10 @@ export default function Home() {
                 onOpenAdvisor={() => {
                   setIsChatOpen(false);
                   setActiveTab('ai-advisor');
+                }}
+                onNavigateToTransactions={() => {
+                  setIsChatOpen(false);
+                  setActiveTab('transactions');
                 }}
               />
             </div>

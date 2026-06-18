@@ -378,7 +378,7 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: 'model',
-        content: `Ups! Server AI sedang sibuk atau ada gangguan jaringan. Silakan coba kirim ulang ya.`,
+        content: `Maaf banget! FINA lagi agak sibuk, pencet tombol dibawah beberapa menit nanti yaa..`,
         isError: true
       }]);
     } finally {
@@ -451,7 +451,7 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
       setMessages(prev => [...prev.filter(m => m.id !== errorMsgId), {
         id: Date.now().toString(),
         role: 'model',
-        content: `Ups! Server AI sedang sibuk atau ada gangguan jaringan. Silakan coba kirim ulang ya.`,
+        content: `Maaf banget! FINA lagi agak sibuk, pencet tombol dibawah beberapa menit nanti yaa..`,
         isError: true
       }]);
     } finally {
@@ -684,7 +684,7 @@ export default function AiInputTab({ wallets, categories, transactions, userProf
                     onClick={() => handleRetryMessage(msg.id)}
                     className="mt-3 w-full bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 py-2 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
                   >
-                    <RefreshCcw className="w-4 h-4" /> Coba Kirim Ulang
+                    <RefreshCcw className="w-4 h-4" /> Kirim Chat-nya Lagi
                   </button>
                 )}
               </div>

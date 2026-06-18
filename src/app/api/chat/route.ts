@@ -134,7 +134,7 @@ Actions yang didukung (Pilih tipe yang sesuai):
   "payload": {
     "type": "expense" | "income",
     "amount": number,
-    "category": string (dari daftar),
+    "category": string (SANGAT KRITIKAL: HARUS SAMA PERSIS DENGAN SALAH SATU DI 'Daftar Kategori User'. JIKA TIDAK ADA, WAJIB GUNAKAN PROPOSE_CATEGORY_AND_RECORD!),
     "note": string,
     "walletName": string (dari daftar),
     "date": string (opsional ISO 8601)

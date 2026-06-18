@@ -108,6 +108,11 @@ export default function Home() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Reset scroll position on tab change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
+
   const formatRupiah = (number: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
   };

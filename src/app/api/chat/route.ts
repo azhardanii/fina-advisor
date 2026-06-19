@@ -226,9 +226,9 @@ Balasanmu:
 
     let selectedModel = 'gemini-2.5-flash';
     if (images && images.length > 0) {
-      selectedModel = 'gemini-3.5-flash';
+      selectedModel = 'gemini-2.5-flash'; // Fallback from 3.5 due to 503
     } else if (lastMessage && lastMessage.length > 500) {
-      selectedModel = 'gemini-3.5-flash';
+      selectedModel = 'gemini-2.5-flash'; // Fallback from 3.5 due to 503
     } else {
       selectedModel = 'gemini-2.5-flash';
     }

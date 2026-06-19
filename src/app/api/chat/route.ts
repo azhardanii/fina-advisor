@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 
-const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 export async function POST(req: Request) {
+  const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   try {
     const body = await req.json();
     const { messages, wallets, categories, userProfile, recentTransactions, images } = body;

@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, X, RefreshCcw } from 'lucide-react';
 
 interface CameraCaptureProps {
@@ -12,6 +13,11 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const startCamera = useCallback(async () => {
     if (stream) {
@@ -78,8 +84,10 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] bg-black flex flex-col">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
       {/* Header Controls */}
       <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/50 to-transparent">
         <button 
@@ -133,6 +141,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
           </div>
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
